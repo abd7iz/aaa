@@ -1,0 +1,72 @@
+name: Validate and deploy MUKHTABAR
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: github-pages
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Check HTML and JavaScript
+        run: |
+          python - <<'PY'
+          from html.parser import HTMLParser
+          from pathlib import Path
+          import re
+
+          source = Path("index.html").read_text(encoding="utf-8")
+          assert '<html lang="ar" dir="rtl">' in source, "Arabic RTL document root is missing"
+
+          class IdChecker(HTMLParser):
+              def __init__(self):
+                  super().__init__()
+                  self.ids = set()
+                  self.duplicates = []
+              def handle_starttag(self, tag, attrs):
+                  attrs = dict(attrs)
+                  value = attrs.get("id")
+                  if value:
+                      if value in self.ids:
+                          self.duplicates.append(value)
+                      self.ids.add(value)
+
+          checker = IdChecker()
+          checker.feed(source)
+          assert not checker.duplicates, f"Duplicate HTML IDs: {checker.duplicates}"
+
+          match = re.search(r'<script\s+type=["\\']module["\\']>([\\s\\S]*?)</script>', source)
+          assert match, "JavaScript module script not found"
+          Path("module-check.mjs").write_text(match.group(1), encoding="utf-8")
+          print(f"HTML structure checked; {len(checker.ids)} unique IDs found.")
+          PY
+          node --check module-check.mjs
+      - name: Configure Pages
+        if: github.event_name == 'push'
+        uses: actions/configure-pages@v5
+      - name: Upload Pages artifact
+        if: github.event_name == 'push'
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: .
+      - name: Deploy to GitHub Pages
+        if: github.event_name == 'push'
+        id: deployment
+        uses: actions/deploy-pages@v4
