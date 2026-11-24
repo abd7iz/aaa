@@ -53,7 +53,7 @@ jobs:
           checker.feed(source)
           assert not checker.duplicates, f"Duplicate HTML IDs: {checker.duplicates}"
 
-          match = re.search(r"<script(?![^>]*\\bsrc=)[^>]*>([\\s\\S]*?)</script>", source)
+          match = re.search(r"<script(?![^>]*src=)[^>]*>(.*?)</script>", source, re.S)
           assert match, "Inline JavaScript script not found"
           Path("module-check.mjs").write_text(match.group(1), encoding="utf-8")
           print(f"HTML structure checked; {len(checker.ids)} unique IDs found.")
