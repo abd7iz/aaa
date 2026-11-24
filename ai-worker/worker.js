@@ -174,12 +174,12 @@ export default {
           message: upstreamMessage
         });
         if (upstream.status === 429) {
-          return json({ error: "وصلت إلى حد الطلبات المتاح في Gemini حالياً. جرّب لاحقاً.", diagnostic: upstreamMessage, upstreamStatus: upstream.status }, 429, origin);
+          return json({ error: "وصلت إلى حد الطلبات المتاح في Gemini حالياً. " + upstreamMessage + " (HTTP " + upstream.status + ")" }, 429, origin);
         }
         if (upstream.status === 401 || upstream.status === 403) {
-          return json({ error: "مفتاح Gemini غير صالح أو لا يملك صلاحية الوصول.", diagnostic: upstreamMessage, upstreamStatus: upstream.status }, 502, origin);
+          return json({ error: "مفتاح Gemini غير صالح أو لا يملك صلاحية الوصول. " + upstreamMessage + " (HTTP " + upstream.status + ")" }, 502, origin);
         }
-        return json({ error: "تعذر على Gemini إكمال الطلب حالياً.", diagnostic: upstreamMessage, upstreamStatus: upstream.status }, 502, origin);
+        return json({ error: "تعذر على Gemini إكمال الطلب حالياً. " + upstreamMessage + " (HTTP " + upstream.status + ")" }, 502, origin);
       }
 
       const steps = Array.isArray(payload.steps) ? payload.steps : [];
