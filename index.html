@@ -62,6 +62,14 @@
 </div>
 <footer class="modal-foot"><small id="footerNote">النتائج محسوبة من القيم الظاهرة</small><div><button id="prevStage">السابق</button> <button id="nextStage">التالي</button></div></footer>
 </div></div>
+<button class="ai-fab" id="aiFab" type="button" aria-controls="aiPanel" aria-expanded="false"><span class="ai-fab-mark">AI</span><span>مساعد المختبر</span></button>
+<section class="ai-panel" id="aiPanel" role="dialog" aria-modal="false" aria-label="مساعد المختبر" hidden>
+  <header class="ai-head"><div><strong>مساعد المختبر الذكي</strong><small id="aiStatus">Gemini Flash · محادثة علمية</small></div><div class="ai-head-actions"><button type="button" id="aiClear">محادثة جديدة</button><button type="button" id="aiClose" aria-label="إغلاق">×</button></div></header>
+  <div class="ai-messages" id="aiMessages" role="log" aria-live="polite"><div class="ai-msg bot">أهلاً! اسألني عن تجربة أو معادلة أو مفهوم علمي. وإذا فتحت تجربة قبل المحادثة، أستطيع استخدام قيمها في الشرح.</div></div>
+  <div class="ai-suggestions"><button type="button" data-ai-prompt="اشرح لي قانون فاراداي بمثال بسيط">اشرح قانون فاراداي</button><button type="button" data-ai-prompt="شنو الفرق بين المجال الكهربائي والمغناطيسي؟">كهرباء ومغناطيسية</button><button type="button" data-ai-prompt="ساعدني أشتق معادلة من الصفر">اشتقاق رياضي</button></div>
+  <form class="ai-form" id="aiForm"><textarea id="aiInput" rows="2" maxlength="1200" placeholder="اكتب سؤالك العلمي..." required></textarea><button id="aiSend" type="submit">إرسال</button></form>
+  <div class="ai-note">المحادثة مؤقتة لهذه الجلسة فقط · قد تخطئ الإجابات، فتحقق من النتائج المهمة</div>
+</section>
 <script src="./ai-config.js"></script>
 <script>
 (function(){
@@ -259,6 +267,47 @@ o.spindleGroup.children.forEach((line,i)=>{const y=(i-3.5)*.12;const side=i%2===
 if(s===5){o.cell.scale.set(.62,.72,.72);o.cell.position.x=0;o.nucleusLeft.position.x=-.65;o.nucleusRight.position.x=.65}else{o.cell.scale.set(1,1,1);o.cell.position.x=0}
 }
 function closeThree(){if(!threeState)return;const o=threeState;o.disposed=true;if(o.raf)cancelAnimationFrame(o.raf);if(o.observer)o.observer.disconnect();if(o.controls)o.controls.dispose();o.scene.traverse(obj=>{if(obj.geometry)obj.geometry.dispose();if(obj.material){if(Array.isArray(obj.material))obj.material.forEach(m=>m.dispose());else obj.material.dispose()}});o.renderer.dispose();threeState=null;const canvas=$('#webglCanvas');if(canvas){canvas.style.display='none';canvas.width=0;canvas.height=0}}
+const aiPanel=$('#aiPanel'),aiMessages=$('#aiMessages'),aiInput=$('#aiInput'),aiSend=$('#aiSend'),aiStatus=$('#aiStatus');
+let aiHistory=[],aiTurnCount=0,aiBusy=false;
+function aiMessage(role,text){const node=document.createElement('div');node.className='ai-msg '+role;node.textContent=text;aiMessages.appendChild(node);aiMessages.scrollTop=aiMessages.scrollHeight;return node}
+function aiStatusMessage(text){const node=aiMessage('status',text);return node}
+function setAiOpen(open){aiPanel.hidden=!open;$('#aiFab').setAttribute('aria-expanded',String(open));if(open){aiInput.focus();if(!window.MUKHTABAR_AI_ENDPOINT)aiStatus.textContent='يلزم إكمال إعداد Gemini مرة واحدة';else aiStatus.textContent='Gemini 3.8 Flash · محادثة مؤقتة'} }
+async function sendAiMessage(text){
+ const endpoint=String(window.MUKHTABAR_AI_ENDPOINT||'').trim();
+ if(!endpoint){aiMessage('status','المساعد جاهز من جهة الموقع، وباقي ربط Worker ومفتاح Gemini. افتح ملف AI_SETUP.md واتبع الخطوات.');return}
+ let endpointUrl;try{endpointUrl=new URL(endpoint)}catch(e){aiMessage('status','رابط المساعد في ai-config.js غير صحيح.');return}
+ if(endpointUrl.protocol!=='https:'){aiMessage('status','يجب أن يكون رابط المساعد آمناً ويبدأ بـ https.');return}
+ if(aiBusy)return;
+ if(aiTurnCount>=8){aiHistory=[];aiTurnCount=0;aiStatusMessage('بدأت جلسة سياق جديدة حتى تبقى المحادثة خفيفة.')}
+ let prompt=text;
+ if(active){prompt+='\\n\\nسياق التجربة المفتوحة في المختبر: '+(names[active.type]||active.type)+'. قيم المتغيرات الحالية: '+JSON.stringify(params)+'. الزمن المنقضي في المحاكاة: '+format(elapsed)+' ثانية. استخدم هذا السياق عند الإجابة.'}
+ aiMessage('user',text);
+ aiHistory.push({type:'user_input',content:[{type:'text',text:prompt}]});
+ aiTurnCount++;
+ aiBusy=true;aiSend.disabled=true;aiInput.disabled=true;
+ const wait=aiStatusMessage('يفكر...');
+ try{
+  const response=await fetch(endpoint,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({history:aiHistory})});
+  const data=await response.json().catch(()=>({}));
+  wait.remove();
+  if(!response.ok||!data.reply)throw new Error(data.error||'تعذر الحصول على رد من المساعد.');
+  if(Array.isArray(data.steps))aiHistory.push(...data.steps);
+  aiMessage('bot',data.reply);
+ }catch(error){
+  aiHistory.pop();aiTurnCount=Math.max(0,aiTurnCount-1);
+  wait.remove();
+  aiMessage('status',error&&error.message?error.message:'تعذر الاتصال. تحقق من إعداد Worker والإنترنت ثم أعد المحاولة.');
+ }finally{
+  aiBusy=false;aiSend.disabled=false;aiInput.disabled=false;aiInput.focus();
+ }
+}
+$('#aiFab').addEventListener('click',()=>setAiOpen(aiPanel.hidden));
+$('#aiClose').addEventListener('click',()=>setAiOpen(false));
+$('#aiClear').addEventListener('click',()=>{aiHistory=[];aiTurnCount=0;aiMessages.replaceChildren();aiMessage('bot','بدأنا محادثة جديدة. اسألني عن أي موضوع علمي أو عن التجربة المفتوحة.');});
+$('#aiForm').addEventListener('submit',e=>{e.preventDefault();const text=aiInput.value.trim();if(!text)return;aiInput.value='';sendAiMessage(text)});
+aiInput.addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();$('#aiForm').requestSubmit()}});
+$$('[data-ai-prompt]').forEach(btn=>btn.addEventListener('click',()=>{aiInput.value=btn.dataset.aiPrompt;aiInput.focus()}));
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!aiPanel.hidden)setAiOpen(false)});
 $('#createBtn').addEventListener('click',buildFromPrompt);
 $$('[data-prompt]').forEach(btn=>btn.addEventListener('click',()=>{$('#promptInput').value=btn.dataset.prompt;$('#promptInput').focus()}));
 $$('[data-launch]').forEach(btn=>btn.addEventListener('click',()=>{const type=btn.dataset.launch;openExperiment({id:'quick-'+type+'-'+Date.now(),type:type,domain:type==='mitosis3d'?'biology':'physics',title:names[type],subtitle:descriptions[type],description:descriptions[type],saved:false})}));
