@@ -1,6 +1,44 @@
-const MODEL = "gemini-3.1-flash-lite";
-const FALLBACK_MODEL = "gemini-3.5-flash-lite";
 const API_URL = "https://generativelanguage.googleapis.com/v1beta/interactions";
+const MODELS_URL = "https://generativelanguage.googleapis.com/v1beta/models?pageSize=1000";
+const MODEL_CACHE_MS = 10 * 60 * 1000;
+let modelCache = { expires: 0, models: [] };
+
+// Explicit allowlist: only models Google documents for the Interactions API.
+const INTERACTIONS_MODELS = [
+  "gemini-3.1-flash-lite", "gemini-3.5-flash-lite", "gemini-3.5-flash",
+  "gemini-3.6-flash", "gemini-3.7-flash", "gemini-3.8-flash", "gemini-4-hydrogen"
+];
+const MODEL_PREFERENCE = [
+  "gemini-3.1-flash-lite", "gemini-3.5-flash-lite", "gemini-3.5-flash",
+  "gemini-3.7-flash", "gemini-3.6-flash", "gemini-3.8-flash", "gemini-4-hydrogen"
+];
+
+async function discoverModels(apiKey) {
+  const now = Date.now();
+  if (modelCache.expires > now && modelCache.models.length) return modelCache.models;
+  try {
+    const response = await fetch(MODELS_URL, {
+      headers: { "x-goog-api-key": apiKey }
+    });
+    if (!response.ok) throw new Error("Models list unavailable");
+    const data = await response.json();
+    const available = new Set((data.models || [])
+      .filter(model => (model.supportedGenerationMethods || []).includes("generateContent"))
+      .map(model => (model.baseModelId || model.name || "").replace(/^models\\//, "")));
+    const discovered = MODEL_PREFERENCE.filter(name =>
+      INTERACTIONS_MODELS.includes(name) && available.has(name)
+    );
+    if (discovered.length) {
+      modelCache = { expires: now + MODEL_CACHE_MS, models: discovered };
+      return discovered;
+    }
+  } catch (error) {
+    console.error("Gemini model discovery failed; using documented compatibility list.");
+  }
+  const fallback = ["gemini-3.1-flash-lite", "gemini-3.5-flash-lite", "gemini-3.8-flash"];
+  modelCache = { expires: now + 60_000, models: fallback };
+  return fallback;
+}
 const SYSTEM_INSTRUCTION = `أنت مساعد مختبر MUKHTABAR العلمي باللغة العربية الواضحة. اشرح الفيزياء والرياضيات والأحياء والكيمياء بمستوى تدريجي، وابدأ بالفكرة ثم المعادلة ثم التعويض والوحدات. كن دقيقاً، وميّز بين النموذج المثالي والواقع، ولا تخترع قيماً أو نتائج. عندما يرسل المستخدم سياق تجربة حاضرة، استخدم متغيراتها الفعلية في الشرح. إذا لم تكن متأكداً فقل ذلك. لا تدّعِ أنك نفذت محاكاة أو قياساً لم تنفذه. اجعل الإجابة واضحة ومباشرة.`;
 
 const rateBuckets = new Map();
@@ -87,8 +125,8 @@ export default {
       return json({
         ok: true,
         configured: Boolean(env.GEMINI_API_KEY),
-        model: MODEL,
-        fallback_model: FALLBACK_MODEL,
+        model: "automatic",
+        discovery: "Google Models API with Interactions compatibility filter",
         service: "MUKHTABAR AI"
       }, 200, originAllowed ? origin : null);
     }
@@ -146,10 +184,11 @@ export default {
         return json({ error: "ابدأ رسالة جديدة أو امسح المحادثة القديمة." }, 400, origin);
       }
 
+      const candidates = await discoverModels(env.GEMINI_API_KEY);
       let upstream;
       let payload = {};
-      let activeModel = MODEL;
-      for (const candidate of [MODEL, FALLBACK_MODEL]) {
+      let activeModel = candidates[0];
+      for (const candidate of candidates.slice(0, 5)) {
         activeModel = candidate;
         upstream = await fetch(API_URL, {
           method: "POST",
@@ -170,7 +209,7 @@ export default {
           })
         });
         payload = await upstream.json().catch(() => ({}));
-        if (upstream.ok || upstream.status !== 503) break;
+        if (upstream.ok || ![429, 503, 404].includes(upstream.status)) break;
       }
       if (!upstream.ok) {
         const upstreamMessage = typeof payload?.error?.message === "string"
@@ -180,7 +219,8 @@ export default {
           status: upstream.status,
           code: payload?.error?.status || null,
           message: upstreamMessage,
-          model: activeModel
+          model: activeModel,
+          tried_models: candidates.slice(0, 5)
         });
         if (upstream.status === 429) {
           return json({ error: "وصلت إلى حد الطلبات المتاح في Gemini حالياً. " + upstreamMessage + " (HTTP " + upstream.status + ", model " + activeModel + ")" }, 429, origin);
@@ -188,7 +228,7 @@ export default {
         if (upstream.status === 401 || upstream.status === 403) {
           return json({ error: "مفتاح Gemini غير صالح أو لا يملك صلاحية الوصول. " + upstreamMessage + " (HTTP " + upstream.status + ", model " + activeModel + ")" }, 502, origin);
         }
-        return json({ error: "تعذر على Gemini إكمال الطلب حالياً. " + upstreamMessage + " (HTTP " + upstream.status + ")" }, 502, origin);
+        return json({ error: "تعذر على Gemini إكمال الطلب حالياً. " + upstreamMessage + " (HTTP " + upstream.status + ", model " + activeModel + ")" }, 502, origin);
       }
 
       const steps = Array.isArray(payload.steps) ? payload.steps : [];
