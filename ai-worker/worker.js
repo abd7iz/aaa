@@ -1,4 +1,5 @@
-const MODEL = "gemini-3.5-flash-lite";
+const MODEL = "gemini-3.1-flash-lite";
+const FALLBACK_MODEL = "gemini-3.5-flash-lite";
 const API_URL = "https://generativelanguage.googleapis.com/v1beta/interactions";
 const SYSTEM_INSTRUCTION = `أنت مساعد مختبر MUKHTABAR العلمي باللغة العربية الواضحة. اشرح الفيزياء والرياضيات والأحياء والكيمياء بمستوى تدريجي، وابدأ بالفكرة ثم المعادلة ثم التعويض والوحدات. كن دقيقاً، وميّز بين النموذج المثالي والواقع، ولا تخترع قيماً أو نتائج. عندما يرسل المستخدم سياق تجربة حاضرة، استخدم متغيراتها الفعلية في الشرح. إذا لم تكن متأكداً فقل ذلك. لا تدّعِ أنك نفذت محاكاة أو قياساً لم تنفذه. اجعل الإجابة واضحة ومباشرة.`;
 
@@ -87,6 +88,7 @@ export default {
         ok: true,
         configured: Boolean(env.GEMINI_API_KEY),
         model: MODEL,
+        fallback_model: FALLBACK_MODEL,
         service: "MUKHTABAR AI"
       }, 200, originAllowed ? origin : null);
     }
@@ -144,26 +146,32 @@ export default {
         return json({ error: "ابدأ رسالة جديدة أو امسح المحادثة القديمة." }, 400, origin);
       }
 
-      const upstream = await fetch(API_URL, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-goog-api-key": env.GEMINI_API_KEY,
-          "Api-Revision": "2026-05-20"
-        },
-        body: JSON.stringify({
-          model: MODEL,
-          store: false,
-          system_instruction: SYSTEM_INSTRUCTION,
-          input: history,
-          generation_config: {
-            thinking_level: "medium",
-            max_output_tokens: 1_000
-          }
-        })
-      });
-
-      const payload = await upstream.json().catch(() => ({}));
+      let upstream;
+      let payload = {};
+      let activeModel = MODEL;
+      for (const candidate of [MODEL, FALLBACK_MODEL]) {
+        activeModel = candidate;
+        upstream = await fetch(API_URL, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "x-goog-api-key": env.GEMINI_API_KEY,
+            "Api-Revision": "2026-05-20"
+          },
+          body: JSON.stringify({
+            model: candidate,
+            store: false,
+            system_instruction: SYSTEM_INSTRUCTION,
+            input: history,
+            generation_config: {
+              thinking_level: "low",
+              max_output_tokens: 1_000
+            }
+          })
+        });
+        payload = await upstream.json().catch(() => ({}));
+        if (upstream.ok || upstream.status !== 503) break;
+      }
       if (!upstream.ok) {
         const upstreamMessage = typeof payload?.error?.message === "string"
           ? payload.error.message.slice(0, 500)
@@ -171,13 +179,14 @@ export default {
         console.error("Gemini upstream error", {
           status: upstream.status,
           code: payload?.error?.status || null,
-          message: upstreamMessage
+          message: upstreamMessage,
+          model: activeModel
         });
         if (upstream.status === 429) {
-          return json({ error: "وصلت إلى حد الطلبات المتاح في Gemini حالياً. " + upstreamMessage + " (HTTP " + upstream.status + ")" }, 429, origin);
+          return json({ error: "وصلت إلى حد الطلبات المتاح في Gemini حالياً. " + upstreamMessage + " (HTTP " + upstream.status + ", model " + activeModel + ")" }, 429, origin);
         }
         if (upstream.status === 401 || upstream.status === 403) {
-          return json({ error: "مفتاح Gemini غير صالح أو لا يملك صلاحية الوصول. " + upstreamMessage + " (HTTP " + upstream.status + ")" }, 502, origin);
+          return json({ error: "مفتاح Gemini غير صالح أو لا يملك صلاحية الوصول. " + upstreamMessage + " (HTTP " + upstream.status + ", model " + activeModel + ")" }, 502, origin);
         }
         return json({ error: "تعذر على Gemini إكمال الطلب حالياً. " + upstreamMessage + " (HTTP " + upstream.status + ")" }, 502, origin);
       }
