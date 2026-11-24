@@ -187,6 +187,9 @@ scene.add(new THREE.AmbientLight(0xbad7ef,1.25));const key=new THREE.Directional
 const cell=new THREE.Group();scene.add(cell);
 const membrane=new THREE.Mesh(new THREE.SphereGeometry(1.42,56,40),new THREE.MeshPhysicalMaterial({color:0x65cbd8,transparent:true,opacity:.15,roughness:.22,metalness:.05,side:THREE.DoubleSide}));membrane.scale.set(1.18,1,.88);cell.add(membrane);
 const wire=new THREE.Mesh(new THREE.SphereGeometry(1.44,32,24),new THREE.MeshBasicMaterial({color:0x69d9e9,wireframe:true,transparent:true,opacity:.17}));wire.scale.copy(membrane.scale);cell.add(wire);
+const daughterMaterial=new THREE.MeshPhysicalMaterial({color:0x65cbd8,transparent:true,opacity:.17,roughness:.25,side:THREE.DoubleSide});
+const daughterLeft=new THREE.Mesh(new THREE.SphereGeometry(1,40,28),daughterMaterial);daughterLeft.scale.set(.88,.82,.76);daughterLeft.position.set(-.82,0,0);daughterLeft.visible=false;cell.add(daughterLeft);
+const daughterRight=new THREE.Mesh(new THREE.SphereGeometry(1,40,28),daughterMaterial.clone());daughterRight.scale.copy(daughterLeft.scale);daughterRight.position.set(.82,0,0);daughterRight.visible=false;cell.add(daughterRight);
 const nucleusMat=new THREE.MeshPhysicalMaterial({color:0x9f88df,transparent:true,opacity:.43,roughness:.3});
 const nucleus=new THREE.Mesh(new THREE.SphereGeometry(.59,36,28),nucleusMat);cell.add(nucleus);
 const nucleusLeft=new THREE.Mesh(new THREE.SphereGeometry(.35,32,24),nucleusMat.clone());nucleusLeft.visible=false;cell.add(nucleusLeft);
@@ -201,11 +204,11 @@ let controls=null;if(OrbitControls){controls=new OrbitControls(camera,canvas);co
 let disposed=false;
 const resize=()=>{if(disposed)return;const w=canvas.parentElement.clientWidth,h=canvas.parentElement.clientHeight;if(w<1||h<1)return;camera.aspect=w/h;camera.updateProjectionMatrix();renderer.setSize(w,h,false)};
 const observer=window.ResizeObserver?new ResizeObserver(resize):null;if(observer)observer.observe(canvas.parentElement);
-threeState={THREE,renderer,scene,camera,controls,cell,membrane,wire,nucleus,nucleusLeft,nucleusRight,chroms,poles,spindleGroup,disposed,observer,resize};
+threeState={THREE,renderer,scene,camera,controls,cell,membrane,wire,daughterLeft,daughterRight,nucleus,nucleusLeft,nucleusRight,chroms,poles,spindleGroup,disposed,observer,resize};
 updateThreeStage();$('#simCanvas').style.display='none';canvas.style.display='block';
 function animate(){if(!threeState||threeState.disposed)return;threeState.raf=requestAnimationFrame(animate);if(playing)cell.rotation.y+=.0018;if(controls)controls.update();renderer.render(scene,camera)}animate();
 }
-function updateThreeStage(){if(!threeState)return;const s=stage,o=threeState;o.membrane.visible=s!==5;o.wire.visible=s!==5;o.nucleus.visible=s===0||s===1||s===2;o.nucleus.scale.setScalar(s===1?.78:1);o.nucleusLeft.visible=s===4||s===5;o.nucleusRight.visible=s===4||s===5;o.nucleusLeft.position.set(-.54,0,0);o.nucleusRight.position.set(.54,0,0);o.poles.forEach(p=>p.visible=s>=1&&s<=3);o.spindleGroup.visible=s>=1&&s<=3;
+function updateThreeStage(){if(!threeState)return;const s=stage,o=threeState;o.membrane.visible=s!==5;o.wire.visible=s!==5;o.daughterLeft.visible=s===5;o.daughterRight.visible=s===5;o.nucleus.visible=s===0||s===1||s===2;o.nucleus.scale.setScalar(s===1?.78:1);o.nucleusLeft.visible=s===4||s===5;o.nucleusRight.visible=s===4||s===5;o.nucleusLeft.position.set(-.54,0,0);o.nucleusRight.position.set(.54,0,0);o.poles.forEach(p=>p.visible=s>=1&&s<=3);o.spindleGroup.visible=s>=1&&s<=3;
 o.chroms.forEach((c,i)=>{const a=i/8*Math.PI*2;let x=Math.cos(a)*.32,y=Math.sin(a)*.26,z=(i%2)*.08;if(s===0){x=Math.cos(a)*.27;y=Math.sin(a)*.25;c.scale.setScalar(.65)}else if(s===2){x=(i-3.5)*.13;y=(i%2)*.06;z=0;c.scale.setScalar(1)}else if(s>=3){const side=i%2===0?-1:1;x=side*(s===3?.48:.54);y=(Math.floor(i/2)-1.5)*.16;z=(i%2)*.06;c.scale.setScalar(.82)}else c.scale.setScalar(1);c.position.set(x,y,z);c.rotation.z=s>=3?(i%2?-.55:.55):a*.12;c.visible=s!==0});
 o.spindleGroup.children.forEach((line,i)=>{const y=(i-3.5)*.12;const side=i%2===0?-1:1;const endX=s>=3?side*.5:0;const geom=new o.THREE.BufferGeometry().setFromPoints([new o.THREE.Vector3(-1.03,0,0),new o.THREE.Vector3(endX,y,0)]);line.geometry.dispose();line.geometry=geom});
 if(s===5){o.cell.scale.set(.62,.72,.72);o.cell.position.x=0;o.nucleusLeft.position.x=-.65;o.nucleusRight.position.x=.65}else{o.cell.scale.set(1,1,1);o.cell.position.x=0}
