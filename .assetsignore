@@ -1,0 +1,10 @@
+# لا ترفع ملفات الخادم والتهيئة ضمن الملفات العامة للموقع
+/.github/
+/ai-worker/
+/AI_SETUP.md
+/README.md
+/wrangler.jsonc
+/.assetsignore
+/.gitignore
+/.git/
+/.wrangler/
