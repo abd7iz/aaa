@@ -64,7 +64,7 @@
 </div></div>
 <button class="ai-fab" id="aiFab" type="button" aria-controls="aiPanel" aria-expanded="false"><span class="ai-fab-mark">AI</span><span>مساعد المختبر</span></button>
 <section class="ai-panel" id="aiPanel" role="dialog" aria-modal="false" aria-label="مساعد المختبر" hidden>
-  <header class="ai-head"><div><strong>مساعد المختبر الذكي</strong><small id="aiStatus">Gemini Flash-Lite · محادثة علمية</small></div><div class="ai-head-actions"><button type="button" id="aiClear">محادثة جديدة</button><button type="button" id="aiClose" aria-label="إغلاق">×</button></div></header>
+  <header class="ai-head"><div><strong>مساعد المختبر الذكي</strong><small id="aiStatus">Gemini تلقائي · محادثة علمية</small></div><div class="ai-head-actions"><button type="button" id="aiClear">محادثة جديدة</button><button type="button" id="aiClose" aria-label="إغلاق">×</button></div></header>
   <div class="ai-messages" id="aiMessages" role="log" aria-live="polite"><div class="ai-msg bot">أهلاً! اسألني عن تجربة أو معادلة أو مفهوم علمي. وإذا فتحت تجربة قبل المحادثة، أستطيع استخدام قيمها في الشرح.</div></div>
   <div class="ai-suggestions"><button type="button" data-ai-prompt="اشرح لي قانون فاراداي بمثال بسيط">اشرح قانون فاراداي</button><button type="button" data-ai-prompt="شنو الفرق بين المجال الكهربائي والمغناطيسي؟">كهرباء ومغناطيسية</button><button type="button" data-ai-prompt="ساعدني أشتق معادلة من الصفر">اشتقاق رياضي</button></div>
   <form class="ai-form" id="aiForm"><textarea id="aiInput" rows="2" maxlength="1200" placeholder="اكتب سؤالك العلمي..." required></textarea><button id="aiSend" type="submit">إرسال</button></form>
@@ -271,7 +271,7 @@ const aiPanel=$('#aiPanel'),aiMessages=$('#aiMessages'),aiInput=$('#aiInput'),ai
 let aiHistory=[],aiTurnCount=0,aiBusy=false;
 function aiMessage(role,text){const node=document.createElement('div');node.className='ai-msg '+role;node.textContent=text;aiMessages.appendChild(node);aiMessages.scrollTop=aiMessages.scrollHeight;return node}
 function aiStatusMessage(text){const node=aiMessage('status',text);return node}
-function setAiOpen(open){aiPanel.hidden=!open;$('#aiFab').setAttribute('aria-expanded',String(open));if(open){aiInput.focus();if(!window.MUKHTABAR_AI_ENDPOINT)aiStatus.textContent='يلزم إكمال إعداد Gemini مرة واحدة';else aiStatus.textContent='Gemini Flash-Lite · محادثة مؤقتة'} }
+function setAiOpen(open){aiPanel.hidden=!open;$('#aiFab').setAttribute('aria-expanded',String(open));if(open){aiInput.focus();if(!window.MUKHTABAR_AI_ENDPOINT)aiStatus.textContent='يلزم إكمال إعداد Gemini مرة واحدة';else aiStatus.textContent='Gemini تلقائي · محادثة مؤقتة'} }
 async function sendAiMessage(text){
  const endpoint=String(window.MUKHTABAR_AI_ENDPOINT||'').trim();
  if(!endpoint){aiMessage('status','المساعد جاهز من جهة الموقع، وباقي ربط Worker ومفتاح Gemini. افتح ملف AI_SETUP.md واتبع الخطوات.');return}
