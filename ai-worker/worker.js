@@ -24,7 +24,7 @@ async function discoverModels(apiKey) {
     const data = await response.json();
     const available = new Set((data.models || [])
       .filter(model => (model.supportedGenerationMethods || []).includes("generateContent"))
-      .map(model => (model.baseModelId || model.name || "").replace(/^models\\//, "")));
+      .map(model => (model.baseModelId || model.name || "").replace(/^models\//, "")));
     const discovered = MODEL_PREFERENCE.filter(name =>
       INTERACTIONS_MODELS.includes(name) && available.has(name)
     );
