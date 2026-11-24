@@ -8,6 +8,7 @@ on:
 
 permissions:
   contents: read
+  actions: write
   pages: write
   id-token: write
 
@@ -71,6 +72,16 @@ jobs:
         uses: actions/checkout@v4
       - name: Configure Pages
         uses: actions/configure-pages@v5
+      - name: Remove previous Pages artifacts for this run
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_ID: ${{ github.run_id }}
+        run: |
+          gh api --paginate "repos/${GITHUB_REPOSITORY}/actions/artifacts" --jq '.artifacts[] | select(.name == "github-pages" and .workflow_run.id == (env.RUN_ID | tonumber)) | .id' | while IFS= read -r artifact_id; do
+            if [ -n "$artifact_id" ]; then
+              gh api --silent --method DELETE "repos/${GITHUB_REPOSITORY}/actions/artifacts/${artifact_id}"
+            fi
+          done
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
         with:
