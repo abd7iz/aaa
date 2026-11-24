@@ -1,45 +1,35 @@
-# تفعيل مساعد MUKHTABAR الذكي
+# تشغيل مساعد MUKHTABAR على نفس رابط المختبر
 
-الواجهة جاهزة، لكن يلزم نشر Worker وإضافة مفتاح Gemini مرة واحدة. مفتاح API لا يوضع في GitHub ولا في ملف HTML.
+الموقع وواجهة الذكاء الاصطناعي يعملان من Worker واحد:
+https://aaa.lkg75589.workers.dev
 
-## 1) احصل على مفتاح Gemini
-1. افتح https://aistudio.google.com/apikey
-2. سجّل الدخول وأنشئ API key.
-3. احتفظ به لنفسك ولا ترسله في المحادثة أو تضعه في ملفات المستودع.
+## 1) انشر التحديث
 
-النموذج المستخدم هو `gemini-3.8-flash` عبر Interactions API، مع `store: false` حتى يحتفظ المختبر بسجل الحوار في الجلسة بدلاً من تخزينه كحوار مستمر لدى واجهة Gemini.
+بعد دمج التحديث في فرع main، سيعيد Cloudflare نشر Worker نفسه تلقائياً باستخدام إعداد Wrangler الموجود في المستودع. لا تنشئ Worker جديداً ولا تغيّر أمر النشر.
 
-## 2) أنشئ Worker في Cloudflare
-1. افتح https://dash.cloudflare.com/ ثم **Workers & Pages**.
-2. أنشئ Worker جديداً باسم مثل `mukhtabar-ai`.
-3. افتح **Edit code** واستبدل المثال بمحتويات الملف:
-   https://github.com/abd7iz/aaa/blob/main/ai-worker/worker.js
-4. من إعدادات Worker افتح **Settings → Variables and Secrets**.
-5. أضف متغيراً نصياً:
-   - Name: `ALLOWED_ORIGINS`
-   - Value: `https://abd7iz.github.io`
-6. أضف Secret (وليس Text variable):
-   - Name: `GEMINI_API_KEY`
-   - Value: مفتاح Gemini الذي أنشأته.
-7. اضغط **Deploy**.
+## 2) أضف مفتاح Gemini كسِرّ
 
-## 3) اربط الموقع بالـ Worker
-بعد النشر سيظهر رابط ينتهي عادةً بـ `.workers.dev`.
-افتح الرابط وأضف `/health` في نهايته. يجب أن يرجع JSON يحتوي `"configured":true`.
+1. افتح لوحة Cloudflare ثم Workers & Pages.
+2. افتح Worker باسم `aaa` (المشروع الذي عنوانه `aaa.lkg75589.workers.dev`).
+3. افتح Settings ثم Variables and Secrets.
+4. أضف متغيراً من نوع Secret:
+   - الاسم: `GEMINI_API_KEY`
+   - القيمة: مفتاح Gemini الذي أنشأته في Google AI Studio.
+5. احفظ التغيير وأعد نشر Worker إذا طلبت Cloudflare ذلك.
 
-ثم افتح الملف:
-https://github.com/abd7iz/aaa/blob/main/ai-config.js
+لا تضف المفتاح إلى GitHub أو إلى `ai-config.js`، ولا ترسله في المحادثة.
 
-وغيّر السطر:
-`window.MUKHTABAR_AI_ENDPOINT = "";`
+## 3) اختبر الاتصال
 
-إلى رابط Worker الكامل مع المسار `/chat`، مثال بالشكل فقط:
-`window.MUKHTABAR_AI_ENDPOINT = "https://اسم-العامل.اسمك.workers.dev/chat";`
+افتح:
+https://aaa.lkg75589.workers.dev/health
 
-احفظ التعديل. بعد تحديث صفحة المختبر سيعمل زر «مساعد المختبر».
+إذا ظهر `"configured":true` فالمفتاح محفوظ في الخادم. افتح بعدها المختبر واضغط «مساعد المختبر» وجرب سؤالاً علمياً.
 
-## حماية وملاحظات
-- لا ترسل مفتاح Gemini لأي شخص ولا تضعه في `ai-config.js` أو GitHub.
-- لا تفعّل خدمة الدفع في Google AI Studio ما لم تكن تريد ذلك وتفهم تكلفته. توفر النموذج وحدود الاستخدام المجاني قد تتغير.
-- توجد حدود حجم للمحادثة وحد أولي للطلبات في Worker؛ حد الطلبات داخل الذاكرة إجراء تخفيفي وليس حماية كاملة ضد الإساءة.
-- المحادثة لا تُحفظ محلياً بعد إغلاق صفحة المختبر. يتم إرسال نص السؤال وسياق التجربة إلى Google لمعالجته.
+## ملاحظات الخصوصية والحماية
+
+- مفتاح Gemini محفوظ في Cloudflare Secret ولا يصل إلى المتصفح.
+- سجل المحادثة مؤقت في صفحة المختبر، ويُرسل إلى Google لمعالجة الرد. إعداد الطلب يستخدم `store: false`.
+- يسمح الخادم بعنوان المختبر نفسه، وكذلك GitHub Pages الافتراضي إذا استُخدم الموقع من هناك.
+- توجد حدود أولية لحجم المحادثة وعدد الطلبات. محدد الطلبات داخل ذاكرة Worker إجراء تخفيفي وليس حماية كاملة من إساءة الاستخدام.
+- حدود Gemini المجانية والتوفر وسياسات معالجة البيانات قد تتغير؛ راجع حساب Google AI Studio قبل الاستخدام المكثف.
