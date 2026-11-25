@@ -138,7 +138,27 @@ jobs:
           const equatorial = api.dipoleField(2, 1, 90);
           assert.ok(Math.abs(axial.magnitude - 4e-7) < 1e-15);
           assert.ok(Math.abs(equatorial.magnitude - 2e-7) < 1e-15);
-          console.log('Interference, induction, diffraction, dipole and polarization schemas and physics checks passed.');
+          const photoelectric = api.normalizeSpec({
+            schema: 'mukhtabar-sim-v1',
+            title: 'التأثير الكهروضوئي',
+            field: 'physics',
+            engine: 'photoelectric',
+            controls: []
+          });
+          assert.equal(photoelectric.engine, 'photoelectric');
+          assert.deepEqual(Array.from(photoelectric.controls, c => c.key), ['wavelength', 'work_function', 'intensity']);
+          assert.deepEqual(Array.from(photoelectric.controls, c => c.value), [365, 2.3, 75]);
+          const photoAbove = api.photoelectric(365, 2.3, 75);
+          const photoDim = api.photoelectric(365, 2.3, 10);
+          const photoBelow = api.photoelectric(700, 2.3, 100);
+          assert.ok(Math.abs(photoAbove.photonEnergy - 1239.841984 / 365) < 1e-12);
+          assert.ok(Math.abs(photoAbove.kineticEnergy - (1239.841984 / 365 - 2.3)) < 1e-12);
+          assert.equal(photoAbove.emission, true);
+          assert.ok(Math.abs(photoAbove.kineticEnergy - photoDim.kineticEnergy) < 1e-12);
+          assert.ok(photoDim.relativeEmissionRate < photoAbove.relativeEmissionRate);
+          assert.equal(photoBelow.emission, false);
+          assert.equal(photoBelow.kineticEnergy, 0);
+          console.log('Interference, induction, diffraction, dipole, polarization and photoelectric schema/physics checks passed.');
           NODE
           node --check ai-worker/worker.js
           node --check ai-config.js
