@@ -20,6 +20,57 @@
 @media(max-width:740px){.app{padding:12px 12px 92px}.hero{grid-template-columns:1fr;padding:20px}.hero-art{display:none}.experiments{grid-template-columns:repeat(2,minmax(0,1fr))}.library-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.modal{padding:0}.panel{width:100%;height:100dvh;border:0;border-radius:0}.workspace{grid-template-columns:1fr;grid-template-rows:minmax(270px,1fr) auto;overflow:auto}.visual{border-left:0;border-bottom:1px solid var(--line);min-height:270px}.visual canvas{min-height:270px}.side{overflow:visible;padding:13px}.metrics{grid-template-columns:repeat(4,minmax(0,1fr))}.metric{padding:8px 6px}.metric b{font-size:12px}.modal-foot{height:50px}.topnote{display:none}}
 @media(max-width:380px){.builder-foot{align-items:flex-start;flex-direction:column}.builder-foot .primary{width:100%}.metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.library-grid{grid-template-columns:1fr 1fr}}
 .ai-fab{position:fixed;z-index:45;right:16px;bottom:86px;border:1px solid rgba(114,217,229,.45);border-radius:999px;background:#173448;color:#eaf8ff;padding:12px 16px;display:flex;align-items:center;gap:9px;box-shadow:0 10px 30px #0007;font-weight:700;font-size:13px}.ai-fab-mark{width:22px;height:22px;border-radius:50%;display:grid;place-items:center;background:#72d9e5;color:#0b1220;font-size:12px}.ai-panel{position:fixed;z-index:60;right:12px;bottom:145px;width:min(410px,calc(100vw - 24px));height:min(640px,calc(100dvh - 175px));min-height:340px;background:#101d2d;border:1px solid #31445c;border-radius:18px;box-shadow:0 18px 55px #000a;display:flex;flex-direction:column;overflow:hidden}.ai-panel[hidden]{display:none}.ai-head{padding:13px 14px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--line)}.ai-head strong{font-size:14px}.ai-head small{display:block;color:var(--muted);font-size:10px;margin-top:3px}.ai-head-actions{display:flex;gap:7px}.ai-head-actions button{background:#1b2a3e;border:1px solid var(--line);color:var(--text);border-radius:9px;padding:6px 9px;font-size:11px}.ai-messages{flex:1;overflow:auto;padding:12px;display:flex;flex-direction:column;gap:10px}.ai-msg{max-width:92%;padding:10px 12px;border-radius:13px;font-size:13px;line-height:1.65;white-space:pre-wrap;overflow-wrap:anywhere}.ai-msg.bot{align-self:flex-start;background:#1a2b40;border:1px solid #2b4058;color:#e6f0fa}.ai-msg.user{align-self:flex-end;background:#174653;border:1px solid #286b7a;color:#effcff}.ai-msg.status{align-self:center;background:transparent;color:var(--muted);font-size:11px;padding:3px}.ai-suggestions{display:flex;gap:6px;overflow:auto;padding:0 12px 9px}.ai-suggestions button{flex:0 0 auto;background:#172a3b;border:1px solid var(--line);color:#b9dbe4;border-radius:999px;padding:7px 10px;font-size:10px}.ai-form{padding:10px;border-top:1px solid var(--line);display:flex;align-items:flex-end;gap:8px}.ai-form textarea{flex:1;resize:none;min-height:43px;max-height:105px;background:#0b1625;border:1px solid #344a63;color:var(--text);border-radius:11px;padding:10px;font-size:13px;line-height:1.5}.ai-form button{height:43px;min-width:54px;border:0;border-radius:11px;background:#72d9e5;color:#0b1722;font-weight:800}.ai-form button:disabled{opacity:.55;cursor:wait}.ai-note{padding:0 12px 8px;text-align:center;color:#8498af;font-size:9px}@media(max-width:520px){.ai-panel{right:8px;bottom:140px;width:calc(100vw - 16px);height:min(68dvh,590px)}.ai-fab{right:12px;bottom:83px}}
+
+/* Claude-inspired mobile-first visual system */
+:root{--bg:#070b14;--surface:#0e1526;--surface2:#141d36;--line:rgba(255,255,255,.085);--text:#e8ecf7;--muted:#8b95b3;--cyan:#38bdf8;--gold:#a78bfa;--green:#34d399}
+html,body{background:var(--bg)}
+body{background:radial-gradient(900px 500px at 100% -10%,rgba(139,92,246,.14),transparent 60%),radial-gradient(700px 500px at -10% 0%,rgba(56,189,248,.10),transparent 55%),var(--bg)}
+.app{width:min(100%,760px);padding:16px 16px 100px}
+.hero{background:linear-gradient(135deg,rgba(56,189,248,.14),rgba(139,92,246,.16));border-color:var(--line)}
+.hero p{color:#c3cbe3}
+.exp-card{background:var(--surface);border-color:var(--line);transition:transform .16s,border-color .16s}
+.exp-card:active{transform:scale(.985)}
+.exp-icon{background:linear-gradient(135deg,#075985,#4f46e5);color:#f4f8ff}
+.library-grid .saved-card{background:var(--surface);border-color:var(--line)}
+.bottom-nav{background:rgba(14,21,38,.96);backdrop-filter:blur(14px);border-top-color:var(--line)}
+.nav-item.active{background:var(--surface2);color:var(--cyan)}
+.modal{background:rgba(0,0,0,.68);backdrop-filter:blur(12px)}
+.panel{background:var(--surface);border-color:var(--line)}
+.modal-head{background:rgba(7,11,20,.92);border-color:var(--line)}
+.visual{background:radial-gradient(circle at 50% 42%,#101a33,#060a14);border-color:var(--line)}
+.visual-label{background:rgba(14,21,38,.86);border-color:var(--line);backdrop-filter:blur(8px)}
+.side{background:var(--bg)}
+.metric{background:var(--surface);border-color:var(--line)}
+.metric b{color:#c4b5fd}
+.stage-panel,.graph-wrap{background:var(--surface);border-color:var(--line)}
+.control-head b,.graph-head strong{color:var(--cyan)}
+.control input{accent-color:var(--cyan)}
+.actions button{background:var(--surface2);border-color:var(--line)}
+.actions .play{background:linear-gradient(135deg,var(--cyan),#6366f1);border-color:transparent;color:#04101f}
+.actions .save{border-color:rgba(167,139,250,.45);color:#c4b5fd}
+.modal-foot{background:rgba(7,11,20,.94);border-color:var(--line)}
+.viewer-tabs{display:flex;gap:7px;padding:0 0 12px;margin-bottom:13px;border-bottom:1px solid var(--line);position:sticky;top:-13px;background:var(--bg);z-index:4}
+.viewer-tab{flex:1;border:1px solid var(--line);border-radius:12px;background:transparent;color:var(--muted);padding:10px 12px;font-size:12px;font-weight:700}
+.viewer-tab.active{background:var(--surface2);border-color:rgba(56,189,248,.48);color:var(--text)}
+.viewer-pane[hidden]{display:none}
+.science-pane{display:grid;gap:11px}
+.science-card{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:14px}
+.science-card small{display:block;color:var(--cyan);font-size:11px;font-weight:700;margin-bottom:7px}
+.science-card p{font-size:13px;line-height:1.85;color:#c3cbe3;margin:0}
+.science-card .science-formula{font-family:ui-monospace,monospace;direction:ltr;text-align:left;color:#c4b5fd;font-size:14px;overflow-wrap:anywhere}
+@media(max-width:740px){
+ .app{padding:12px 14px 96px}
+ .workspace{grid-template-columns:1fr;grid-template-rows:minmax(225px,42dvh) minmax(0,1fr);overflow:hidden}
+ .visual{height:42dvh;min-height:225px;border-left:0;border-bottom:1px solid var(--line)}
+ .visual canvas{height:100%;min-height:0}
+ .side{overflow-y:auto;overscroll-behavior:contain;padding:12px 14px 22px}
+ .metrics{grid-template-columns:repeat(2,minmax(0,1fr))}
+ .metric{padding:10px}
+ .metric b{font-size:14px}
+ .panel{height:100dvh}
+}
+@media(max-width:380px){.viewer-tab{font-size:11px;padding:9px 7px}}
+
 </style>
 </head>
 <body>
@@ -58,7 +109,7 @@
 <div class="modal" id="experimentModal" role="dialog" aria-modal="true" aria-label="المحاكاة العلمية"><div class="panel">
 <header class="modal-head"><div><h2 id="modalTitle">تجربة علمية</h2><small id="modalSub">محاكاة تفاعلية</small></div><button class="close" id="closeModal" aria-label="إغلاق">×</button></header>
 <div class="workspace"><div class="visual" id="visual"><span class="visual-label" id="visualLabel">محاكاة تفاعلية</span><canvas id="simCanvas" class="fallback-canvas"></canvas><canvas id="webglCanvas" class="webgl-canvas"></canvas></div>
-<aside class="side"><h3 id="simHeading">النتائج</h3><p class="side-desc" id="simDescription"></p><div class="metrics" id="metrics"></div><div class="stage-panel" id="stagePanel"><small id="stageCounter">المرحلة</small><strong id="stageName">—</strong><p id="stageDescription"></p></div><div class="controls" id="controls"></div><div class="graph-wrap" id="graphWrap"><div class="graph-head"><strong id="graphTitle">الرسم البياني</strong><span>يتحدّث مع تغيّر القيم</span></div><canvas id="graphCanvas" aria-label="رسم بياني للنتائج"></canvas></div><div class="actions"><button class="play" id="playPause">إيقاف الحركة</button><button id="resetSim">إعادة ضبط</button><button class="save" id="saveCurrent">حفظ التجربة</button></div></aside>
+<aside class="side"><div class="viewer-tabs" role="tablist" aria-label="أقسام التجربة"><button class="viewer-tab active" type="button" role="tab" aria-selected="true" data-viewer-tab="controls">التحكم والنتائج</button><button class="viewer-tab" type="button" role="tab" aria-selected="false" data-viewer-tab="science">الشرح العلمي</button></div><div class="viewer-pane" id="controlsPane"><h3 id="simHeading">النتائج</h3><p class="side-desc" id="simDescription"></p><div class="metrics" id="metrics"></div><div class="stage-panel" id="stagePanel"><small id="stageCounter">المرحلة</small><strong id="stageName">—</strong><p id="stageDescription"></p></div><div class="controls" id="controls"></div><div class="graph-wrap" id="graphWrap"><div class="graph-head"><strong id="graphTitle">الرسم البياني</strong><span>يتحدّث مع تغيّر القيم</span></div><canvas id="graphCanvas" aria-label="رسم بياني للنتائج"></canvas></div><div class="actions"><button class="play" id="playPause">إيقاف الحركة</button><button id="resetSim">إعادة ضبط</button><button class="save" id="saveCurrent">حفظ التجربة</button></div></div><div class="viewer-pane science-pane" id="sciencePane" hidden><div class="science-card"><small>الفكرة العلمية</small><p id="scienceDescription"></p></div><div class="science-card"><small>المعادلة أو المبدأ</small><p class="science-formula" id="scienceFormula"></p></div><div class="science-card"><small>حدود النموذج</small><p id="scienceLimits"></p></div></div></aside>
 </div>
 <footer class="modal-foot"><small id="footerNote">النتائج محسوبة من القيم الظاهرة</small><div><button id="prevStage">السابق</button> <button id="nextStage">التالي</button></div></footer>
 </div></div>
@@ -104,7 +155,7 @@ const descriptions={
 projectile:'نموذج حركة جسم يُطلق بسرعة ابتدائية بزاوية على الأفقي، مع إهمال مقاومة الهواء وثبات الجاذبية.',
 freefall:'نموذج سقوط جسم من السكون تحت تأثير الجاذبية فقط، مع إهمال مقاومة الهواء.',
 pendulum:'نموذج بندول بسيط. الزمن الدوري المعروض تقريبي باستخدام علاقة الزوايا الصغيرة.',
-orbit3d:'مدار دائري مبسط حول مركز جذب ثابت. هذا عرض توضيحي وليس حساباً فلكياً لمدار حقيقي.',
+orbit3d:'مجسّم ثلاثي الأبعاد للأرض بخريطة سطح وطبقة سحب وإضاءة ليلية للمدن، يتحرك حول الشمس في مدار دائري توضيحي.',
 newton:'نموذج كتلة على سطح أفقي تتأثر بقوة سحب واحتكاك حركي. نحسب القوة المحصلة والتسارع والسرعة والإزاحة وفق قانون نيوتن الثاني.',
 harmonic:'نموذج كتلة متصلة بنابض مثالي. يوضّح الإزاحة مع الزمن والتردد والزمن الدوري وفق الحركة التوافقية البسيطة.',
 circuit:'دائرة تيار مستمر بسيطة بمصدر جهد ومقاومة أومية. نحسب شدة التيار والقدرة وفق قانون أوم.',
@@ -184,11 +235,46 @@ if(active.type==='induction'){const d=inductionData();html=metric('أقصى جه
 if(active.type==='magneticforce'){const d=magneticForceData();html=metric('القوة المغناطيسية',format(d.force)+' N')+metric('كثافة المجال',format(params.field)+' T')+metric('التيار',format(params.current)+' A')+metric('الزاوية',format(params.angle)+'°');}
 if(active.type==='mitosis3d'){html=metric('عدد المراحل','6')+metric('المرحلة الحالية',(stage+1)+' / 6')+metric('العملية','انقسام متساوٍ')+metric('الناتج','خليتان بنتان')}
 $('#metrics').innerHTML=html;$('#simDescription').textContent=desc;$('#simHeading').textContent=active.type==='mitosis3d'?'مراحل الانقسام':active.type==='orbit3d'?'حركة الكوكب':'النتائج المحسوبة';$('#visualLabel').textContent=active.type==='mitosis3d'?'خلية ثلاثية الأبعاد بتفاصيل عضيات':active.type==='orbit3d'?'الأرض بخريطة سطحية وغيوم ثلاثية الأبعاد':active.type==='projectile'?'جسم كروي ومسار ثلاثي الأبعاد':'محاكاة مرئية';$('#graphWrap').style.display=active.type==='mitosis3d'?'none':'block';$('#graphTitle').textContent=active.type==='projectile'?'الارتفاع مع الزمن':active.type==='freefall'?'مسافة السقوط مع الزمن':active.type==='pendulum'?'إزاحة البندول مع الزمن':active.type==='orbit3d'?'موضع الكوكب مع الزمن':active.type==='newton'?'السرعة مع الزمن':active.type==='harmonic'?'إزاحة النابض مع الزمن':active.type==='induction'?'الجهد الحثي مع الزمن':active.type==='magneticforce'?'القوة مقابل الزاوية':'العلاقة بين الجهد والتيار';}
+const scienceFormulas={
+ orbit3d:'r(t) = R[cos(ωt), sin(ωt)]',
+ projectile:'x(t)=v₀ cos(θ)t  |  y(t)=v₀ sin(θ)t − ½gt²',
+ freefall:'y(t)=½gt²  |  v(t)=gt',
+ pendulum:'T ≈ 2π√(L/g)',
+ newton:'ΣF = ma',
+ harmonic:'x(t)=A cos(ωt),  ω=√(k/m)',
+ circuit:'V = IR  |  P = VI',
+ induction:'ε = −N dΦB/dt',
+ magneticforce:'F = BIL sin(θ)',
+ mitosis3d:'تضاعف DNA → تكثّف الكروموسومات → اصطفاف → انفصال → انقسام السيتوبلازم'
+};
+const scienceLimits={
+ orbit3d:'المدار هنا دائري توضيحي حول نجم ثابت، وليس حلاً عددياً كاملاً لمدار كوكبي حقيقي. دوران الأرض حول محورها والغيوم والقمر مؤثرات مرئية مستقلة.',
+ projectile:'يُهمل النموذج مقاومة الهواء، ويفترض ثبات تعجيل الجاذبية طوال الحركة.',
+ freefall:'سقوط رأسي من السكون مع إهمال مقاومة الهواء وتغيّر الجاذبية مع الارتفاع.',
+ pendulum:'العلاقة الزمنية تقريبية وتكون أدق عند زوايا اهتزاز صغيرة.',
+ newton:'نموذج جسم واحد على سطح أفقي مع احتكاك مبسط.',
+ harmonic:'نابض مثالي، مع إهمال الاحتكاك وفقدان الطاقة.',
+ circuit:'دائرة تيار مستمر بمقاومة أومية مثالية.',
+ induction:'مجال مغناطيسي منتظم وملف مثالي، مع إهمال مقاومة الملف والحمل.',
+ magneticforce:'سلك مستقيم في مجال مغناطيسي منتظم.',
+ mitosis3d:'هذا نموذج تعليمي مبسط للأجزاء والمراحل، وليس صورة مجهرية أو تمثيلاً جزيئياً بمقياس حقيقي.'
+};
+function switchViewerTab(name){
+ $('.viewer-tab').forEach(b=>{const on=b.dataset.viewerTab===name;b.classList.toggle('active',on);b.setAttribute('aria-selected',String(on))});
+ $('#controlsPane').hidden=name!=='controls';$('#sciencePane').hidden=name!=='science';
+}
+function updateSciencePanel(){
+ $('#scienceDescription').textContent=descriptions[active.type]||active.subtitle||'شرح مبسط للتجربة العلمية.';
+ $('#scienceFormula').textContent=scienceFormulas[active.type]||'—';
+ $('#scienceLimits').textContent=scienceLimits[active.type]||'يعتمد النموذج على الافتراضات المبينة في قيم التجربة.';
+}
+$('.viewer-tab').forEach(b=>b.addEventListener('click',()=>switchViewerTab(b.dataset.viewerTab)));
+
 function stageText(){const cell=active.type==='mitosis3d';$('#stagePanel').style.display=cell?'block':'none';$('#prevStage').style.display=cell?'inline-block':'none';$('#nextStage').style.display=cell?'inline-block':'none';if(cell){$('#stageCounter').textContent='المرحلة '+(stage+1)+' من 6';$('#stageName').textContent=stageData[stage].name;$('#stageDescription').textContent=stageData[stage].desc}else{$('#stagePanel').style.display='none'}}
 function openExperiment(exp){
 closeThree();active=Object.assign({},exp);params=Object.assign({},defaults[active.type]||{},active.params||{});stage=0;playing=true;elapsed=0;lastFrame=0;
 if(!names[active.type]){toast('نوع التجربة غير مدعوم.');return}
-$('#modalTitle').textContent=active.title||names[active.type];$('#modalSub').textContent=active.subtitle||descriptions[active.type];$('#footerNote').textContent='المعادلات والنتائج تعتمد على القيم المعروضة';
+$('#modalTitle').textContent=active.title||names[active.type];$('#modalSub').textContent=active.subtitle||descriptions[active.type];$('#footerNote').textContent='المعادلات والنتائج تعتمد على القيم المعروضة';updateSciencePanel();switchViewerTab('controls');
 $('#playPause').textContent='إيقاف الحركة';$('#experimentModal').classList.add('open');document.body.style.overflow='hidden';
 $('#simCanvas').style.display='block';$('#webglCanvas').style.display='none';$('#webglCanvas').width=0;$('#webglCanvas').height=0;
 renderControls();updateMetrics();stageText();drawScene();startLoop();
@@ -360,7 +446,7 @@ if(type==='mitosis3d'){
  starsGeo.setAttribute('position',new THREE.BufferAttribute(starPos,3));
  scene.add(new THREE.Points(starsGeo,new THREE.PointsMaterial({color:0xd8e8ff,size:.075,transparent:true,opacity:.85,sizeAttenuation:true})));
  const sunTex=(()=>{const c=document.createElement('canvas');c.width=256;c.height=128;const x=c.getContext('2d'),g=x.createLinearGradient(0,0,256,128);g.addColorStop(0,'#a83d17');g.addColorStop(.45,'#f9a43c');g.addColorStop(1,'#fff0a5');x.fillStyle=g;x.fillRect(0,0,256,128);for(let i=0;i<350;i++){x.fillStyle='rgba(255,240,160,'+(Math.random()*.22)+')';x.fillRect(Math.random()*256,Math.random()*128,1+Math.random()*8,1+Math.random()*2)}return new THREE.CanvasTexture(c)})();
- const sun=new THREE.Mesh(new THREE.SphereGeometry(.9,48,32),new THREE.MeshBasicMaterial({map:sunTex}));sun.position.set(-4.5,0,0);scene.add(sun);
+ const sun=new THREE.Mesh(new THREE.SphereGeometry(.9,48,32),new THREE.MeshBasicMaterial({map:sunTex}));sun.position.set(0,0,0);scene.add(sun);try{const realSun=loader.load('https://raw.githubusercontent.com/JiayuanZhu/solar-system-viz/main/textures/2k_sun.jpg',t=>{t.colorSpace=THREE.SRGBColorSpace;sun.material.map=t;sun.material.needsUpdate=true},()=>{});realSun.colorSpace=THREE.SRGBColorSpace}catch(_){}
  const sunGlow=new THREE.Sprite(new THREE.SpriteMaterial({map:(()=>{const c=document.createElement('canvas');c.width=c.height=128;const x=c.getContext('2d'),g=x.createRadialGradient(64,64,2,64,64,64);g.addColorStop(0,'rgba(255,205,105,.8)');g.addColorStop(.35,'rgba(255,133,45,.22)');g.addColorStop(1,'rgba(255,100,30,0)');x.fillStyle=g;x.fillRect(0,0,128,128);return new THREE.CanvasTexture(c)})(),transparent:true,blending:THREE.AdditiveBlending,depthWrite:false}));
  sunGlow.scale.set(5.5,5.5,1);sun.add(sunGlow);
  const orbitPoints=[];for(let i=0;i<=160;i++){const a=i/160*Math.PI*2;orbitPoints.push(new THREE.Vector3(Math.cos(a)*params.radius*1.5,0,Math.sin(a)*params.radius*1.5))}
@@ -369,13 +455,28 @@ if(type==='mitosis3d'){
  const earthFallback=noiseTexture('#356b9c',950);
  let earthMap=earthFallback;
  try{earthMap=loader.load('https://raw.githubusercontent.com/JiayuanZhu/solar-system-viz/main/textures/2k_earth_daymap.jpg',t=>{t.colorSpace=THREE.SRGBColorSpace;earth.material.map=t;earth.material.needsUpdate=true},()=>{});earthMap.colorSpace=THREE.SRGBColorSpace}catch(_){}
- const earth=new THREE.Mesh(earthGeo,new THREE.MeshStandardMaterial({color:0xffffff,map:earthMap,roughness:.82,metalness:0}));scene.add(earth);
+ const earthMaterial=new THREE.MeshStandardMaterial({color:0xffffff,map:earthMap,roughness:.84,metalness:0});
+ const earth=new THREE.Mesh(earthGeo,earthMaterial);scene.add(earth);
+ let nightMap=null;
+ try{
+  nightMap=loader.load('https://raw.githubusercontent.com/JiayuanZhu/solar-system-viz/main/textures/2k_earth_nightmap.jpg',t=>{t.colorSpace=THREE.SRGBColorSpace;earthMaterial.needsUpdate=true},()=>{});
+  nightMap.colorSpace=THREE.SRGBColorSpace;
+  earthMaterial.onBeforeCompile=shader=>{
+   shader.uniforms.uNightMap={value:nightMap};
+   shader.uniforms.uSunDirection={value:new THREE.Vector3(1,0,0)};
+   shader.vertexShader=shader.vertexShader.replace('#include <common>','#include <common>\\nvarying vec3 vWorldNormal;');
+   shader.vertexShader=shader.vertexShader.replace('#include <beginnormal_vertex>','#include <beginnormal_vertex>\\nvWorldNormal = normalize(mat3(modelMatrix) * objectNormal);');
+   shader.fragmentShader=shader.fragmentShader.replace('#include <common>','#include <common>\\nuniform sampler2D uNightMap;\\nuniform vec3 uSunDirection;\\nvarying vec3 vWorldNormal;');
+   shader.fragmentShader=shader.fragmentShader.replace('#include <emissivemap_fragment>','#include <emissivemap_fragment>\\nfloat nightSide = 1.0 - smoothstep(-0.12,0.18,dot(normalize(vWorldNormal),normalize(uSunDirection)));\\nvec3 cityLights = texture2D(uNightMap, vUv).rgb;\\ntotalEmissiveRadiance += cityLights * nightSide * 1.2;');
+   earthMaterial.userData.shader=shader;
+  };
+ }catch(_){}
  const cloudsTex=loader.load('https://raw.githubusercontent.com/JiayuanZhu/solar-system-viz/main/textures/2k_earth_clouds.jpg',t=>{t.colorSpace=THREE.SRGBColorSpace;clouds.material.map=t;clouds.material.needsUpdate=true},()=>{});
  const clouds=new THREE.Mesh(new THREE.SphereGeometry(.634,48,36),new THREE.MeshStandardMaterial({map:cloudsTex,transparent:true,opacity:.17,depthWrite:false,roughness:1}));scene.add(clouds);
  const atmosphere=new THREE.Mesh(new THREE.SphereGeometry(.66,48,36),new THREE.MeshBasicMaterial({color:0x4b9fff,transparent:true,opacity:.10,side:THREE.BackSide,depthWrite:false}));scene.add(atmosphere);
  const moon=new THREE.Mesh(new THREE.SphereGeometry(.16,32,24),new THREE.MeshStandardMaterial({color:0xb5b8bd,roughness:1,map:noiseTexture('#888b90',500)}));scene.add(moon);
  const planetLight=new THREE.PointLight(0xffd39a,100,50);planetLight.position.copy(sun.position);scene.add(planetLight);
- const updateOrbit=()=>{const a=elapsed*params.speed*.28,r=params.radius*1.5;const x=Math.cos(a)*r,z=Math.sin(a)*r;earth.position.set(x,0,z);earth.rotation.y=elapsed*.22;clouds.position.copy(earth.position);clouds.rotation.y=elapsed*.27;atmosphere.position.copy(earth.position);moon.position.set(x+Math.cos(a*3)*.96,.04,z+Math.sin(a*3)*.96)};
+ const updateOrbit=()=>{const a=elapsed*params.speed*.55,r=params.radius*1.5;const x=Math.cos(a)*r,z=Math.sin(a)*r;earth.position.set(x,0,z);earth.rotation.set(0,elapsed*.38,.4091);clouds.position.copy(earth.position);clouds.rotation.set(0,elapsed*.50,.4091);atmosphere.position.copy(earth.position);moon.position.set(x+Math.cos(a*3)*.96,.04,z+Math.sin(a*3)*.96);const shader=earthMaterial.userData.shader;if(shader)shader.uniforms.uSunDirection.value.copy(sun.position).sub(earth.position).normalize()};
  state.controls=addCameraControls(new THREE.Vector3(0,0,0),5,35);
  state.update=updateOrbit;state.reset=updateOrbit;state.onParamsChange=()=>{
   const pts=[];for(let i=0;i<=160;i++){const a=i/160*Math.PI*2;pts.push(new THREE.Vector3(Math.cos(a)*params.radius*1.5,0,Math.sin(a)*params.radius*1.5))}
@@ -425,7 +526,7 @@ state.onParamsChange=state.onParamsChange||(()=>{});
 threeState=state;
 updateThreeStage();
 $('#simCanvas').style.display='none';canvas.style.display='block';
-state.update=()=>{if(type==='mitosis3d'&&playing)state.cell.rotation.y+=.0009};
+const sceneUpdater=state.update;state.update=()=>{if(type==='mitosis3d'){if(playing&&state.cell)state.cell.rotation.y+=.0009}else if(sceneUpdater)sceneUpdater()};
 }
 function updateThreeStage(){
  if(!threeState||!threeState.cell)return;
