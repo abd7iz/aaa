@@ -9,6 +9,14 @@
 
   function finite(v, fallback) { return typeof v === 'number' && isFinite(v) ? v : fallback; }
   function clamp(v, a, b) { return Math.min(b, Math.max(a, v)); }
+  // Deterministic pseudo-random generator used to distribute tokamak particles.
+  function seeded(seed) {
+    var state = seed;
+    return function () {
+      state = (state * 16807) % 2147483647;
+      return state / 2147483647 * 2 - 1;
+    };
+  }
   function text(v, max, fallback) {
     return typeof v === 'string' ? v.trim().slice(0, max) : (fallback || '');
   }
