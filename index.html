@@ -108,7 +108,7 @@ input[type=range]{width:100%;direction:ltr;accent-color:var(--ac);height:28px}
 <script>window.MUKHTABAR_CONFIG={AI_ENDPOINT:window.MUKHTABAR_AI_ENDPOINT||""};</script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/lucide@0.469.0/dist/umd/lucide.min.js"></script>
-<script src="./simulation-engine.js?v=33"></script>
+<script src="./simulation-engine.js?v=34"></script>
 <script>
 (function(){
 'use strict';
@@ -877,7 +877,7 @@ async function aiGenerate(prompt){
   try{
     var requestPrompt=[
       'أنت مهندس يبني تجارب علمية تفاعلية لمختبر MUKHTABAR. أخرج إعداداً قابلاً للتشغيل بصيغة JSON فقط.',
-      'إذا كان الطلب يطابق بوضوح تجربة موجودة (mitosis أو projectile أو orbit) أخرج {"kind":"builtin","experimentId":"orbit","params":{},"note":""}. خلاف ذلك أنشئ تجربة جديدة بصيغة {"kind":"generated","experiment":{...}}.',
+      'إذا كان الطلب يطابق تجربة جاهزة في المختبر فاخترها مباشرة بصيغة {"kind":"builtin","experimentId":"id","params":{},"note":""}. التجارب الجاهزة: mitosis, projectile, orbit, interference, induction, diffraction, dipole, polarization, photoelectric, decay. لا تعِد بناء تجربة جاهزة كمشهد عام. إذا كان الطلب ظاهرة جديدة غير موجودة فأنشئ تجربة جديدة بصيغة {"kind":"generated","experiment":{...}}.',
       'مخطط التجربة الجديدة: {"schema":"mukhtabar-sim-v1","title":"اسم عربي","field":"physics|biology|chemistry|astronomy|mathematics","engine":"tokamak|wave|pendulum|interference|induction|diffraction|dipole|polarization|photoelectric|decay|scene","summary":"وصف قصير","objective":"هدف التجربة","principle":"شرح المبدأ العلمي","formula":"معادلة قصيرة أو فارغ","assumptions":"حدود النموذج","controls":[{"key":"amplitude","label":"السعة","min":0.2,"max":2.5,"step":0.05,"value":1,"unit":"m","description":"تأثير المتغير"}],"objects":[{"type":"sphere|box|cylinder|torus|ring|cone|icosahedron","label":"اسم العنصر","color":"#38bdf8","emissive":"#082e59","position":[0,0,0],"scale":[1,1,1],"rotation":[0,0,0],"motion":{"type":"none|orbit|rotate|pulse|swing|helix","speed":1,"radius":2,"amplitude":0.5,"axis":"x|y|z","control":"amplitude"}}]}',
       'tokamak: صمّم حجرة حلقية تشبه جهاز توكاماك، وبلازما متوهجة، ملفات مغناطيسية، خطوط مجال ثلاثية الأبعاد وجسيمات مشحونة. مفاتيح التحكم field بوحدة T وtemperature بوحدة keV وdensity بوحدة ×10¹⁹ م⁻³. صرّح بأنه نموذج توضيحي وليس حلاً لمعادلات MHD.',
       'wave: موجة جيبية متحركة، وتحكم amplitude وfrequency وspeed.',
