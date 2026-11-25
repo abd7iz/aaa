@@ -51,7 +51,7 @@
     if (!raw || typeof raw !== 'object' || raw.schema !== 'mukhtabar-sim-v1') {
       throw new Error('صيغة التجربة التي أنشأها الذكاء الاصطناعي غير معروفة.');
     }
-    var engine = ['tokamak', 'wave', 'pendulum', 'interference', 'induction', 'diffraction', 'dipole', 'polarization', 'photoelectric', 'decay', 'bohr', 'scene'].indexOf(raw.engine) >= 0 ? raw.engine : null;
+    var engine = ['tokamak', 'wave', 'pendulum', 'interference', 'induction', 'diffraction', 'dipole', 'polarization', 'photoelectric', 'decay', 'bohr', 'blackbody', 'scene'].indexOf(raw.engine) >= 0 ? raw.engine : null;
     if (!engine) throw new Error('نوع المحاكاة غير مدعوم في محرك المختبر الحالي.');
     var field = FIELDS.indexOf(raw.field) >= 0 ? raw.field : 'physics';
     var used = {}, controls = [];
@@ -115,6 +115,9 @@
       ensure(defaultControl('atomic_number', 'العدد الذري Z', 1, 3, 1, 1, ''));
       ensure(defaultControl('initial_level', 'المستوى الابتدائي nᵢ', 2, 6, 1, 3, ''));
       ensure(defaultControl('final_level', 'المستوى النهائي n𝒇', 1, 6, 1, 2, ''));
+    } else if (engine === 'blackbody') {
+      ensure(defaultControl('temperature', 'درجة حرارة الجسم', 1800, 12000, 100, 5800, 'K'));
+      ensure(defaultControl('surface_area', 'مساحة السطح المشع', .001, .05, .001, .01, 'm²'));
     }
     if (!controls.length) controls.push(defaultControl('rate', 'معدل الحركة', .1, 3, .05, 1, '×'));
     if (controls.length > 7) controls = controls.slice(0, 7);
@@ -237,6 +240,24 @@
     };
   };
 
+  ENGINE.wienPeakNm = function (temperatureK) {
+    var T = Math.max(1, finite(temperatureK, 5800));
+    return 2897771.955 / T;
+  };
+  ENGINE.blackbodySpectrum = function (temperatureK, wavelengthNm) {
+    var T = Math.max(1, finite(temperatureK, 5800));
+    var lambda = Math.max(1e-12, finite(wavelengthNm, 500) * 1e-9);
+    var h = 6.62607015e-34, c = 299792458, k = 1.380649e-23;
+    var x = h * c / (lambda * k * T);
+    if (x > 700) return 0;
+    return (2 * h * c * c) / (Math.pow(lambda, 5) * Math.expm1(x));
+  };
+  ENGINE.stefanBoltzmannPower = function (temperatureK, areaM2) {
+    var T = Math.max(0, finite(temperatureK, 0));
+    var A = Math.max(0, finite(areaM2, 0));
+    return 5.670374419e-8 * A * Math.pow(T, 4);
+  };
+
   function paramsFrom(def, state) {
     var out = {};
     def.params.forEach(function (p) {
@@ -256,7 +277,7 @@
       id: 'generated',
       field: spec.field === 'biology' ? 'bio' : 'phy',
       fieldLabel: ({ physics: 'الفيزياء', biology: 'الأحياء', chemistry: 'الكيمياء', astronomy: 'الفلك', mathematics: 'الرياضيات' })[spec.field],
-      icon: spec.engine === 'tokamak' ? 'atom' : spec.engine === 'wave' ? 'activity' : spec.engine === 'pendulum' ? 'clock' : spec.engine === 'interference' ? 'waves' : spec.engine === 'induction' ? 'zap' : spec.engine === 'diffraction' ? 'scan-eye' : spec.engine === 'dipole' ? 'magnet' : spec.engine === 'polarization' ? 'sun' : spec.engine === 'photoelectric' ? 'zap' : spec.engine === 'decay' ? 'atom' : spec.engine === 'bohr' ? 'orbit' : 'shapes',
+      icon: spec.engine === 'tokamak' ? 'atom' : spec.engine === 'wave' ? 'activity' : spec.engine === 'pendulum' ? 'clock' : spec.engine === 'interference' ? 'waves' : spec.engine === 'induction' ? 'zap' : spec.engine === 'diffraction' ? 'scan-eye' : spec.engine === 'dipole' ? 'magnet' : spec.engine === 'polarization' ? 'sun' : spec.engine === 'photoelectric' ? 'zap' : spec.engine === 'decay' ? 'atom' : spec.engine === 'bohr' ? 'orbit' : spec.engine === 'blackbody' ? 'thermometer-sun' : 'shapes',
       title: spec.title,
       short: spec.summary,
       spec: spec,
@@ -353,6 +374,16 @@
           rows.push(['فرق الطاقة', transition.energy.toFixed(4) + ' eV']);
           rows.push(['الطول الموجي', transition.wavelength === null ? 'لا يوجد فوتون' : transition.wavelength.toFixed(2) + ' nm']);
           rows.push(['نوع الانتقال', transition.type === 'emission' ? 'انبعاث' : transition.type === 'absorption' ? 'امتصاص' : 'لا انتقال']);
+        }
+        if (spec.engine === 'blackbody') {
+          var tempK = param(prm, 'temperature', 5800);
+          var area = param(prm, 'surface_area', .01);
+          var peakNm = ENGINE.wienPeakNm(tempK);
+          var peakRadiance = ENGINE.blackbodySpectrum(tempK, peakNm);
+          rows.push(['درجة الحرارة', tempK.toFixed(0) + ' K']);
+          rows.push(['طول موجة القمة λmax', peakNm.toFixed(1) + ' nm']);
+          rows.push(['القدرة المشعة الكلية', ENGINE.stefanBoltzmannPower(tempK, area).toFixed(2) + ' W']);
+          rows.push(['شدة الطيف عند القمة', peakRadiance.toExponential(3) + ' W·m⁻³·sr⁻¹']);
         }
         return rows;
       };
@@ -1900,7 +1931,128 @@
         };
         resetModel = function () { time = 0; updateModel(0); };
         updateModel(0);
-      } else if (spec.engine === 'pendulum') {
+      } else if (spec.engine === 'blackbody') {
+        // Planck spectrum for an ideal blackbody, displayed as a live wavelength curve.
+        var graphWidth = 5.6, graphHeight = 2.25, graphBaseY = -1.75;
+        var minWavelength = 100, maxWavelength = 2400, spectrumSamples = 180;
+        var plotPosition = new Float32Array((spectrumSamples + 1) * 3);
+        var plotColors = new Float32Array((spectrumSamples + 1) * 3);
+        var plotGeometry = new T.BufferGeometry();
+        plotGeometry.setAttribute('position', new T.BufferAttribute(plotPosition, 3));
+        plotGeometry.setAttribute('color', new T.BufferAttribute(plotColors, 3));
+        var plotMaterial = new T.LineBasicMaterial({
+          vertexColors: true, transparent: true, opacity: .96
+        });
+        var spectrumLine = new T.Line(plotGeometry, plotMaterial);
+        spectrumLine.frustumCulled = false;
+        S.add(spectrumLine);
+
+        var chartFrameMat = new T.LineBasicMaterial({ color: 0x526b80, transparent: true, opacity: .55 });
+        var chartFrameGeo = new T.BufferGeometry().setFromPoints([
+          new T.Vector3(-graphWidth / 2, graphBaseY, .2),
+          new T.Vector3(graphWidth / 2, graphBaseY, .2),
+          new T.Vector3(graphWidth / 2, graphBaseY + graphHeight, .2),
+          new T.Vector3(-graphWidth / 2, graphBaseY + graphHeight, .2),
+          new T.Vector3(-graphWidth / 2, graphBaseY, .2)
+        ]);
+        S.add(new T.Line(chartFrameGeo, chartFrameMat));
+        for (var tick = 1; tick <= 3; tick++) {
+          var gy = graphBaseY + graphHeight * tick / 4;
+          var gridGeo = new T.BufferGeometry().setFromPoints([
+            new T.Vector3(-graphWidth / 2, gy, .18),
+            new T.Vector3(graphWidth / 2, gy, .18)
+          ]);
+          S.add(new T.Line(gridGeo, new T.LineBasicMaterial({ color: 0x35485a, transparent: true, opacity: .26 })));
+        }
+
+        var emitterMat = new T.MeshPhongMaterial({
+          color: 0xffb66b, emissive: 0xf05a1b, emissiveIntensity: 1.15,
+          shininess: 80, specular: 0xffe2be
+        });
+        var emitter = new T.Mesh(new T.SphereGeometry(.64, 36, 28), emitterMat);
+        emitter.position.set(0, 1.18, 0);
+        S.add(emitter);
+        var emitterHalo = new T.Mesh(new T.SphereGeometry(.78, 28, 20),
+          new T.MeshBasicMaterial({ color: 0xffa451, transparent: true, opacity: .13, side: T.BackSide, blending: T.AdditiveBlending, depthWrite: false }));
+        emitterHalo.position.copy(emitter.position);
+        S.add(emitterHalo);
+        var emitterLight = new T.PointLight(0xffaa64, 1.3, 8);
+        emitterLight.position.copy(emitter.position);
+        S.add(emitterLight);
+
+        var peakMarker = new T.Mesh(new T.SphereGeometry(.075, 16, 12),
+          new T.MeshBasicMaterial({ color: 0xffffff }));
+        S.add(peakMarker);
+        var spectrumCache = '';
+        function blackbodyColor(tempK) {
+          var t = tempK / 100;
+          var r, g, b;
+          if (t <= 66) {
+            r = 255;
+            g = 99.4708025861 * Math.log(Math.max(1, t)) - 161.1195681661;
+            b = t <= 19 ? 0 : 138.5177312231 * Math.log(Math.max(1, t - 10)) - 305.0447927307;
+          } else {
+            r = 329.698727446 * Math.pow(t - 60, -0.1332047592);
+            g = 288.1221695283 * Math.pow(t - 60, -0.0755148492);
+            b = 255;
+          }
+          return new T.Color(clamp(r, 0, 255) / 255, clamp(g, 0, 255) / 255, clamp(b, 0, 255) / 255);
+        }
+        var plotPeakY = graphBaseY;
+        function updateSpectrum() {
+          var temp = param(prm, 'temperature', 5800);
+          var key = String(temp);
+          if (key === spectrumCache) return;
+          spectrumCache = key;
+          var radiance = new Float64Array(spectrumSamples + 1);
+          var maximum = 0, maxIndex = 0;
+          for (var i = 0; i <= spectrumSamples; i++) {
+            var lambda = minWavelength + (maxWavelength - minWavelength) * i / spectrumSamples;
+            var value = ENGINE.blackbodySpectrum(temp, lambda);
+            radiance[i] = value;
+            if (value > maximum) { maximum = value; maxIndex = i; }
+          }
+          var rgb = blackbodyColor(temp);
+          for (var j = 0; j <= spectrumSamples; j++) {
+            var wavelength = minWavelength + (maxWavelength - minWavelength) * j / spectrumSamples;
+            var x = -graphWidth / 2 + graphWidth * j / spectrumSamples;
+            var normalized = maximum > 0 ? radiance[j] / maximum : 0;
+            var y = graphBaseY + Math.pow(normalized, .48) * graphHeight;
+            plotPosition[j * 3] = x;
+            plotPosition[j * 3 + 1] = y;
+            plotPosition[j * 3 + 2] = .24;
+            plotColors[j * 3] = rgb.r;
+            plotColors[j * 3 + 1] = rgb.g;
+            plotColors[j * 3 + 2] = rgb.b;
+          }
+          plotGeometry.attributes.position.needsUpdate = true;
+          plotGeometry.attributes.color.needsUpdate = true;
+          var peakLambda = ENGINE.wienPeakNm(temp);
+          var peakX = -graphWidth / 2 + graphWidth * (peakLambda - minWavelength) / (maxWavelength - minWavelength);
+          var peakIndex = clamp(Math.round((peakLambda - minWavelength) / (maxWavelength - minWavelength) * spectrumSamples), 0, spectrumSamples);
+          peakMarker.position.set(peakX, plotPosition[peakIndex * 3 + 1], .34);
+          emitterMat.color.copy(rgb);
+          emitterMat.emissive.copy(rgb).multiplyScalar(.66);
+          emitterHalo.material.color.copy(rgb);
+          emitterLight.color.copy(rgb);
+          emitterLight.intensity = .7 + temp / 9000;
+          emitterLight.distance = 6 + temp / 1500;
+          emitterHalo.material.opacity = .08 + temp / 65000;
+          plotPeakY = plotPosition[maxIndex * 3 + 1];
+        }
+
+        updateModel = function () {
+          updateSpectrum();
+          emitter.rotation.y = time * .12;
+          var pulse = 1 + .018 * Math.sin(time * 2.1);
+          emitter.scale.setScalar(pulse);
+          emitterHalo.scale.setScalar(1.0 + .02 * Math.sin(time * 1.7));
+        };
+        resetModel = function () { time = 0; updateModel(0); };
+        updateModel(0);
+        st.sph.r = 10.6;
+        st.place();
+
         var L = param(prm, 'length', 2), pivot = new T.Vector3(0, 3, 0);
         var pivotMesh = new T.Mesh(new T.SphereGeometry(.13, 18, 12), new T.MeshPhongMaterial({ color: 0xd1d5db }));
         pivotMesh.position.copy(pivot); S.add(pivotMesh);
@@ -2024,6 +2176,7 @@
           if (spec.engine === 'photoelectric') return 'حسب معادلة أينشتاين للتأثير الكهروضوئي: Eγ = hc/λ، وKmax = max(0, Eγ − φ). إذا كانت طاقة الفوتون أقل من دالة الشغل φ فلا يحدث انبعاث مهما زادت شدة الضوء. عند تجاوز العتبة، تغيّر الشدة عدد الإلكترونات المنبعثة بينما يحدد التردد طاقتها الحركية القصوى. جهد الإيقاف العددي يساوي Kmax بوحدة الفولت عندما تقاس الطاقة بالإلكترون فولت. النموذج مثالي ولا يحسب توزيع طاقات الإلكترونات أو تفاصيل سطح المعدن.';
           if (spec.engine === 'decay') return 'يصف الاضمحلال الإشعاعي قانوناً إحصائياً: N(t)=N₀e^(−λt)، حيث λ=ln(2)/T½. كل نواة لها زمن اضمحلال عشوائي موزع أُسياً؛ لذلك قد يختلف العدد المشاهد عن المنحنى المتوقع، خصوصاً في العينات الصغيرة. زد عدد النوى لملاحظة تقارب النتيجة من المنحنى الإحصائي. هذا نموذج تعليمي لا يحدد مادة مشعة بعينها أو نشاطاً عملياً.';
           if (spec.engine === 'bohr') return 'في نموذج بور للأيونات الشبيهة بالهيدروجين تكون طاقة المستوى En = −13.6 Z²/n² eV. عند الانتقال بين مستويين تتغير طاقة الذرة بمقدار ΔE = 13.6 Z²|1/nf² − 1/ni²|، وتُحمل هذه الطاقة بفوتون طوله الموجي λ = hc/ΔE. هذا نموذج مبسط، ولا يصف الذرات متعددة الإلكترونات أو البنية الدقيقة للخطوط الطيفية.';
+          if (spec.engine === 'blackbody') return 'يصف قانون بلانك التوزيع الطيفي لإشعاع الجسم الأسود حسب الطول الموجي ودرجة الحرارة. تنتقل قمة الطيف مع الحرارة وفق قانون فين λmax = 2.8978×10⁶/T nm، بينما تتناسب القدرة الكلية المشعة لكل وحدة مساحة مع T⁴ وفق قانون ستيفان–بولتزمان. الرسم يعرض طيفاً نسبياً ضمن نطاق 100–2400 nm؛ والقدرة الكلية المعروضة محسوبة لمساحة السطح المختارة. النموذج يفترض باعثاً مثالياً بمعامل انبعاث يساوي واحداً.';
           return spec.assumptions || spec.principle || spec.summary;
         },
         dispose: function () { st.dispose(); }
