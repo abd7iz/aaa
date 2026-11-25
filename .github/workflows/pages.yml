@@ -95,7 +95,8 @@ jobs:
             "} else if (spec.engine === 'standingwave') {",
             "} else if (spec.engine === 'collision') {",
             "} else if (spec.engine === 'titration') {",
-            "} else if (spec.engine === 'electrostatic') {"
+            "} else if (spec.engine === 'electrostatic') {",
+            "} else if (spec.engine === 'venturi') {"
           ];
           for (const marker of branchMarkers) assert.ok(engineSource.includes(marker), "Missing simulation branch: " + marker);
           assert.ok(engineSource.includes("function maxwellPdfRatio"), "Ideal gas Maxwell speed curve is missing");
@@ -388,7 +389,24 @@ jobs:
           assert.ok(Math.abs(oppositeMid.potential) < 1e-12);
           assert.ok(Math.abs(likeMid.magnitude) < 1e-12);
           assert.ok(Math.abs(likeMid.potential - 2 * k * 2) < 1e-8);
-          console.log('Optics, atomic spectra, gas, RLC, Doppler, collisions, titration and electrostatic physics/schema checks passed.');
+          const venturi = api.normalizeSpec({
+            schema: 'mukhtabar-sim-v1',
+            title: 'أنبوب فنتوري',
+            field: 'physics',
+            engine: 'venturi',
+            controls: []
+          });
+          assert.equal(venturi.engine, 'venturi');
+          assert.deepEqual(Array.from(venturi.controls, c => c.key), ['inlet_velocity', 'inlet_radius', 'throat_radius', 'density', 'inlet_pressure']);
+          assert.deepEqual(Array.from(venturi.controls, c => c.value), [2, 0.1, 0.06, 1000, 150]);
+          const venturiState = api.venturiState(2, .1, .06, 1000, 150);
+          assert.ok(Math.abs(venturiState.throatSpeed - 2 * Math.pow(.1 / .06, 2)) < 1e-12);
+          assert.ok(Math.abs(venturiState.inletPressurePa + .5 * 1000 * 4 - (venturiState.throatPressurePa + .5 * 1000 * venturiState.throatSpeed ** 2)) < 1e-8);
+          assert.ok(venturiState.throatPressureKPa < venturiState.inletPressureKPa);
+          const uniformFlow = api.venturiState(2, .1, .1, 1000, 150);
+          assert.ok(Math.abs(uniformFlow.throatSpeed - 2) < 1e-12);
+          assert.ok(Math.abs(uniformFlow.pressureDropKPa) < 1e-12);
+          console.log('Optics, atomic spectra, gas, RLC, Doppler, collisions, titration, electrostatic and Venturi physics/schema checks passed.');
           NODE
           node --check ai-worker/worker.js
           node --check ai-config.js
