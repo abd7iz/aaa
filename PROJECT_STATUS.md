@@ -54,6 +54,10 @@ Current UI asset version: v34
 ## AI routing
 - The AI prompt now prefers existing built-in experiment cards (mitosis, projectile, orbit, interference, induction, diffraction, dipole, polarization, photoelectric, decay) rather than rebuilding them as generic scenes.
 
+## Ready-made core models
+- Tokamak, sinusoidal wave and pendulum are direct cards in the physics list, not AI-only generated scenes.
+- Local demo matching and AI built-in routing recognize these experiment IDs.
+
 ## Validation
 - CI parses all inline app scripts, simulation-engine.js, Worker and config.
 - Node smoke tests verify interference, induction, diffraction, dipole and polarization schemas and default controls.
