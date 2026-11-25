@@ -232,8 +232,8 @@ function confirmDlg(title,text,okLabel){
 /* ---------- 3D stage (own tiny orbit controls: drag = rotate, pinch/wheel = zoom) ---------- */
 function makeStage(host,o){
   var T=THREE;
-  var renderer=new T.WebGLRenderer({antialias:true,alpha:true});
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio||1,2));
+  var renderer=new T.WebGLRenderer({antialias:false,alpha:true,powerPreference:'low-power',preserveDrawingBuffer:false});
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio||1,1.25));
   var cv=renderer.domElement;cv.className='gl';host.appendChild(cv);
   var scene=new T.Scene();
   var camera=new T.PerspectiveCamera(50,1,0.1,600);
@@ -831,7 +831,7 @@ function viewViewer(expId,rec){
   if(!window.THREE){host.innerHTML='<div class="glerr">تعذّر تحميل مكتبة Three.js (تحقق من الاتصال بالإنترنت ثم أعد فتح الصفحة).</div>';}
   else{
     try{inst=def.make(host,state);}
-    catch(e){console.error(e);host.innerHTML='<div class="glerr">جهازك أو متصفحك لا يدعم رسوميات WebGL المطلوبة لهذه المحاكاة.</div>';}
+    catch(e){console.error('MUKHTABAR simulation error:',e);var msg=e&&e.message?e.message:String(e||'unknown');host.innerHTML='<div class="glerr"><b>تعذر تشغيل المحاكاة.</b><br><small>'+esc(msg)+'</small><br>إذا استمر الخطأ أرسل هذه الرسالة للدعم.</div>';}
   }
   $$('.tab').forEach(function(b){b.addEventListener('click',function(){
     $$('.tab').forEach(function(x){x.classList.toggle('on',x===b);});
