@@ -179,56 +179,231 @@
 
       if (spec.engine === 'tokamak') {
         var R = 2.8, tube = .58;
-        var vessel = new T.Mesh(new T.TorusGeometry(R, tube * 1.28, 24, 100), new T.MeshPhongMaterial({ color: 0x64748b, transparent: true, opacity: .22, shininess: 95, side: T.DoubleSide }));
+        function ratio(key, fallback) {
+          var c = spec.controls.filter(function (x) { return x.key === key; })[0];
+          if (!c) return fallback;
+          return clamp((param(prm, key, c.value) - c.min) / Math.max(.0001, c.max - c.min), 0, 1);
+        }
+        var vessel = new T.Mesh(new T.TorusGeometry(R, tube * 1.3, 28, 112),
+          new T.MeshPhongMaterial({ color: 0x64748b, transparent: true, opacity: .2, shininess: 95, side: T.DoubleSide }));
         S.add(vessel);
-        var plasmaMat = new T.MeshPhongMaterial({ color: 0x38bdf8, emissive: 0x082e59, emissiveIntensity: 1.1, transparent: true, opacity: .82, shininess: 100, side: T.DoubleSide });
-        var plasma = new T.Mesh(new T.TorusGeometry(R, tube, 32, 120), plasmaMat);
-        plasma.rotation.x = .12; S.add(plasma);
-        var inner = new T.Mesh(new T.TorusGeometry(R, tube * .72, 18, 100), new T.MeshBasicMaterial({ color: 0x67e8f9, transparent: true, opacity: .18 }));
-        inner.rotation.x = .12; S.add(inner);
-        var core = new T.Mesh(new T.CylinderGeometry(.42, .42, 2.8, 32), new T.MeshPhongMaterial({ color: 0x334155, metalness: .7, shininess: 90 }));
+
+        // A deformable, translucent plasma volume replaces the rigid glowing arc.
+        function plasmaSurface(radius, majorSeg, minorSeg, phase) {
+          var positions = new Float32Array((majorSeg + 1) * (minorSeg + 1) * 3);
+          var indices = [];
+          for (var a = 0; a <= majorSeg; a++) {
+            for (var b = 0; b <= minorSeg; b++) {
+              var k = (a * (minorSeg + 1) + b) * 3;
+              positions[k] = (R + radius) * Math.cos(a / majorSeg * Math.PI * 2);
+              positions[k + 1] = radius * Math.sin(b / minorSeg * Math.PI * 2);
+              positions[k + 2] = (R + radius) * Math.sin(a / majorSeg * Math.PI * 2);
+            }
+          }
+          for (var x = 0; x < majorSeg; x++) {
+            for (var y = 0; y < minorSeg; y++) {
+              var p = x * (minorSeg + 1) + y, q = p + minorSeg + 1;
+              indices.push(p, q, p + 1, q, q + 1, p + 1);
+            }
+          }
+          var geo = new T.BufferGeometry();
+          geo.setAttribute('position', new T.BufferAttribute(positions, 3));
+          geo.setIndex(indices);
+          geo.computeVertexNormals();
+          return { geometry: geo, base: positions.slice(), major: majorSeg, minor: minorSeg, radius: radius, phase: phase };
+        }
+        var shellA = plasmaSurface(tube, 132, 28, 0);
+        var shellB = plasmaSurface(tube * .68, 112, 22, 1.7);
+        var plasmaOuterMat = new T.MeshPhongMaterial({
+          color: 0x34d9ee, emissive: 0x07506b, emissiveIntensity: 1.35,
+          transparent: true, opacity: .32, shininess: 95, side: T.DoubleSide,
+          blending: T.AdditiveBlending, depthWrite: false
+        });
+        var plasmaInnerMat = new T.MeshBasicMaterial({
+          color: 0x8bf5ff, transparent: true, opacity: .18,
+          side: T.DoubleSide, blending: T.AdditiveBlending, depthWrite: false
+        });
+        var plasma = new T.Mesh(shellA.geometry, plasmaOuterMat); S.add(plasma);
+        var plasmaCore = new T.Mesh(shellB.geometry, plasmaInnerMat); S.add(plasmaCore);
+
+        var core = new T.Mesh(new T.CylinderGeometry(.42, .42, 2.8, 32),
+          new T.MeshPhongMaterial({ color: 0x334155, metalness: .7, shininess: 90 }));
         core.rotation.x = Math.PI / 2; S.add(core);
         for (var c = 0; c < 14; c++) {
-          var a = c / 14 * Math.PI * 2;
-          var coil = new T.Mesh(new T.TorusGeometry(.72, .09, 12, 32), new T.MeshPhongMaterial({ color: 0xd5a85c, metalness: .8, shininess: 100 }));
-          coil.position.set(Math.cos(a) * R, 0, Math.sin(a) * R);
-          coil.rotation.y = -a; coil.rotation.x = Math.PI / 2; S.add(coil);
+          var coilAngle = c / 14 * Math.PI * 2;
+          var coil = new T.Mesh(new T.TorusGeometry(.72, .09, 12, 32),
+            new T.MeshPhongMaterial({ color: 0xd5a85c, metalness: .8, shininess: 100 }));
+          coil.position.set(Math.cos(coilAngle) * R, 0, Math.sin(coilAngle) * R);
+          coil.rotation.y = -coilAngle; coil.rotation.x = Math.PI / 2; S.add(coil);
         }
+
         var lineGroup = new T.Group(); S.add(lineGroup);
-        var lineMats = [];
-        for (var f = 0; f < 9; f++) {
-          var points = [], phase = f * Math.PI * 2 / 9;
-          for (var j = 0; j <= 360; j++) {
-            var u = j / 360 * Math.PI * 4, twist = 2.3 + param(prm, 'field', 6) * .19;
-            var v = twist * u + phase;
-            points.push(new T.Vector3((R + tube * Math.cos(v)) * Math.cos(u), tube * Math.sin(v), (R + tube * Math.cos(v)) * Math.sin(u)));
+        var lineMats = [], lastField = -1;
+        function rebuildFieldLines(fieldRatio) {
+          while (lineGroup.children.length) {
+            var old = lineGroup.children[0];
+            lineGroup.remove(old);
+            if (old.geometry) old.geometry.dispose();
+            if (old.material) old.material.dispose();
           }
-          var curve = new T.CatmullRomCurve3(points);
-          var line = new T.Mesh(new T.TubeGeometry(curve, 420, .018, 5, false), new T.MeshBasicMaterial({ color: 0x7dd3fc, transparent: true, opacity: .48 }));
-          lineGroup.add(line); lineMats.push(line.material);
+          lineMats = [];
+          var pitch = 1.15 + fieldRatio * 2.7;
+          for (var f = 0; f < 9; f++) {
+            var points = [], phase = f * Math.PI * 2 / 9;
+            for (var j = 0; j <= 300; j++) {
+              var u = j / 300 * Math.PI * 4;
+              var v = pitch * u + phase;
+              var minor = tube * .99;
+              points.push(new T.Vector3(
+                (R + minor * Math.cos(v)) * Math.cos(u),
+                minor * Math.sin(v),
+                (R + minor * Math.cos(v)) * Math.sin(u)
+              ));
+            }
+            var curve = new T.CatmullRomCurve3(points);
+            var line = new T.Mesh(new T.TubeGeometry(curve, 300, .012 + fieldRatio * .006, 4, false),
+              new T.MeshBasicMaterial({ color: 0x7dd3fc, transparent: true, opacity: .34 + fieldRatio * .34 }));
+            lineGroup.add(line); lineMats.push(line.material);
+          }
+          lastField = fieldRatio;
         }
-        var count = 900, arr = new Float32Array(count * 3), pg = new T.BufferGeometry();
-        pg.setAttribute('position', new T.BufferAttribute(arr, 3));
-        var dots = new T.Points(pg, new T.PointsMaterial({ color: 0xfef3c7, size: .055, transparent: true, opacity: .95, sizeAttenuation: true }));
-        S.add(dots);
+        rebuildFieldLines(ratio('field', .45));
+
+        // Particles follow helical guiding-centre paths and a small gyro-orbit around them.
+        var count = 1450, particlePos = new Float32Array(count * 3);
+        var particleColors = new Float32Array(count * 3);
+        var particleSeeds = seeded(241), phi0 = new Float32Array(count), theta0 = new Float32Array(count);
+        var rho0 = new Float32Array(count), gyro0 = new Float32Array(count), gyroSize = new Float32Array(count);
+        for (var n = 0; n < count; n++) {
+          phi0[n] = (particleSeeds() + 1) * Math.PI;
+          theta0[n] = (particleSeeds() + 1) * Math.PI;
+          rho0[n] = Math.sqrt((particleSeeds() + 1) * .5);
+          gyro0[n] = (particleSeeds() + 1) * Math.PI;
+          gyroSize[n] = .018 + Math.abs(particleSeeds()) * .026;
+          var warm = n % 5 === 0;
+          particleColors[n * 3] = warm ? 1 : .42;
+          particleColors[n * 3 + 1] = warm ? .82 : .9;
+          particleColors[n * 3 + 2] = warm ? .52 : 1;
+        }
+        var particleGeo = new T.BufferGeometry();
+        particleGeo.setAttribute('position', new T.BufferAttribute(particlePos, 3));
+        particleGeo.setAttribute('color', new T.BufferAttribute(particleColors, 3));
+        var particles = new T.Points(particleGeo, new T.PointsMaterial({
+          size: .067, vertexColors: true, transparent: true, opacity: .96,
+          blending: T.AdditiveBlending, depthWrite: false, sizeAttenuation: true
+        }));
+        S.add(particles);
+
+        // A smaller set of short streaks makes the helical direction visible.
+        var trailLines = [], trailCount = 18, trailSteps = 20, trailSpan = .42;
+        for (var tr = 0; tr < trailCount; tr++) {
+          var trailArray = new Float32Array(trailSteps * 3), trailGeometry = new T.BufferGeometry();
+          trailGeometry.setAttribute('position', new T.BufferAttribute(trailArray, 3));
+          var trailLine = new T.Line(trailGeometry, new T.LineBasicMaterial({
+            color: tr % 3 === 0 ? 0xffd58a : 0x9cefff,
+            transparent: true, opacity: .48, blending: T.AdditiveBlending, depthWrite: false
+          }));
+          S.add(trailLine);
+          trailLines.push({ geometry: trailGeometry, array: trailArray, particle: Math.floor(tr / trailCount * count) });
+        }
+
+        var hazeCount = 520, hazePos = new Float32Array(hazeCount * 3), hazeGeo = new T.BufferGeometry();
+        var hazeSeeds = seeded(992), hazePhi = new Float32Array(hazeCount), hazeTheta = new Float32Array(hazeCount), hazeRho = new Float32Array(hazeCount);
+        for (var hz = 0; hz < hazeCount; hz++) {
+          hazePhi[hz] = (hazeSeeds() + 1) * Math.PI;
+          hazeTheta[hz] = (hazeSeeds() + 1) * Math.PI;
+          hazeRho[hz] = Math.sqrt((hazeSeeds() + 1) * .5) * .9;
+        }
+        hazeGeo.setAttribute('position', new T.BufferAttribute(hazePos, 3));
+        var haze = new T.Points(hazeGeo, new T.PointsMaterial({
+          color: 0x50dff5, size: .105, transparent: true, opacity: .2,
+          blending: T.AdditiveBlending, depthWrite: false, sizeAttenuation: true
+        }));
+        S.add(haze);
+
         var glow = new T.PointLight(0x38bdf8, 1.8, 14); glow.position.set(0, 1.2, 0); S.add(glow);
-        updateModel = function (dt) {
-          var B = param(prm, 'field', 6), heat = param(prm, 'temperature', 8), density = param(prm, 'density', 5);
-          var hue = clamp(.56 - (heat - 1) / 19 * .12, .42, .58);
-          plasmaMat.color.setHSL(hue, .92, .56);
-          plasmaMat.emissive.setHSL(hue, .9, .16);
-          plasmaMat.emissiveIntensity = .55 + heat / 20 * 1.8;
-          glow.intensity = .7 + heat / 20 * 2.2;
-          lineMats.forEach(function (m) { m.opacity = .18 + B / 12 * .58; });
-          var visible = Math.floor(count * density / 10), rate = .35 + heat / 20 * 2.6;
-          for (var n = 0; n < visible; n++) {
-            var u = ((n / visible) * Math.PI * 2 + time * rate) % (Math.PI * 2);
-            var v = 2.3 * u + (B * .19) * u + n * 2.399;
-            arr[n * 3] = (R + tube * Math.cos(v)) * Math.cos(u);
-            arr[n * 3 + 1] = tube * Math.sin(v);
-            arr[n * 3 + 2] = (R + tube * Math.cos(v)) * Math.sin(u);
+        function particlePoint(index, atTime, out, isHaze) {
+          var B = ratio('field', .45), heat = ratio('temperature', .45);
+          var basePhi = isHaze ? hazePhi[index] : phi0[index];
+          var baseTheta = isHaze ? hazeTheta[index] : theta0[index];
+          var radial = isHaze ? hazeRho[index] : rho0[index];
+          var phi = basePhi + atTime * (.24 + heat * 1.15);
+          var pitch = 1.15 + B * 2.7;
+          var theta = baseTheta + atTime * (.52 + heat * 1.1 + B * .45) + (phi - basePhi) * pitch;
+          var minor = tube * (.12 + radial * .7);
+          var gyroPhase = (isHaze ? index * 1.71 : gyro0[index]) + atTime * (2.5 + heat * 9);
+          var gyro = isHaze ? .018 : gyroSize[index] * (.55 + heat * 1.4);
+          var cross = minor * Math.cos(theta) + gyro * Math.cos(gyroPhase);
+          var vertical = minor * Math.sin(theta) + gyro * Math.sin(gyroPhase);
+          return out.set((R + cross) * Math.cos(phi), vertical, (R + cross) * Math.sin(phi));
+        }
+        var tempColor = new T.Color();
+        function deformSurface(surface, atTime, heatRatio) {
+          var attr = surface.geometry.attributes.position, base = surface.base;
+          for (var i = 0; i < attr.count; i++) {
+            var x = base[i * 3], y = base[i * 3 + 1], z = base[i * 3 + 2];
+            var phi = Math.atan2(z, x), theta = Math.atan2(y, Math.sqrt(x * x + z * z) - R);
+            var pulse = Math.sin(phi * 5 - atTime * (1.1 + heatRatio * 2.6) + theta * 2);
+            var ripple = Math.sin(phi * 9 + atTime * 1.7 + theta * 3) * .045;
+            var radius = surface.radius * (1 + pulse * (.025 + heatRatio * .035) + ripple);
+            var xx = R + radius * Math.cos(theta), yy = radius * Math.sin(theta);
+            attr.array[i * 3] = xx * Math.cos(phi);
+            attr.array[i * 3 + 1] = yy;
+            attr.array[i * 3 + 2] = xx * Math.sin(phi);
           }
-          pg.attributes.position.needsUpdate = true; pg.setDrawRange(0, visible);
+          attr.needsUpdate = true;
+          surface.geometry.computeVertexNormals();
+        }
+        var particleVec = new T.Vector3(), trailVec = new T.Vector3(), hazeVec = new T.Vector3();
+        updateModel = function () {
+          var Bvalue = param(prm, 'field', 6), heat = param(prm, 'temperature', 8), density = param(prm, 'density', 5);
+          var bRatio = ratio('field', .45), hRatio = ratio('temperature', .45), dRatio = ratio('density', .45);
+          if (Math.abs(bRatio - lastField) > .015) rebuildFieldLines(bRatio);
+
+          var hue = clamp(.55 - hRatio * .13, .41, .57);
+          tempColor.setHSL(hue, .94, .58);
+          plasmaOuterMat.color.copy(tempColor);
+          plasmaOuterMat.emissive.copy(tempColor).multiplyScalar(.18);
+          plasmaOuterMat.emissiveIntensity = .8 + hRatio * 2;
+          plasmaOuterMat.opacity = .2 + dRatio * .23;
+          plasmaInnerMat.opacity = .08 + dRatio * .16;
+          glow.intensity = .85 + hRatio * 2.3;
+          glow.distance = 11 + hRatio * 7;
+          lineMats.forEach(function (m) { m.opacity = .24 + bRatio * .48; });
+
+          deformSurface(shellA, time, hRatio);
+          deformSurface(shellB, time * .83, hRatio);
+          var visible = Math.floor(count * (.1 + dRatio * .9));
+          for (var p = 0; p < visible; p++) {
+            particlePoint(p, time, particleVec, false);
+            particlePos[p * 3] = particleVec.x;
+            particlePos[p * 3 + 1] = particleVec.y;
+            particlePos[p * 3 + 2] = particleVec.z;
+          }
+          particleGeo.attributes.position.needsUpdate = true;
+          particleGeo.setDrawRange(0, visible);
+
+          var hazeVisible = Math.floor(hazeCount * (.12 + dRatio * .88));
+          for (var h = 0; h < hazeVisible; h++) {
+            particlePoint(h, time * .72, hazeVec, true);
+            hazePos[h * 3] = hazeVec.x;
+            hazePos[h * 3 + 1] = hazeVec.y;
+            hazePos[h * 3 + 2] = hazeVec.z;
+          }
+          hazeGeo.attributes.position.needsUpdate = true;
+          hazeGeo.setDrawRange(0, hazeVisible);
+
+          trailLines.forEach(function (trail, ti) {
+            var particle = Math.floor(ti / trailCount * visible);
+            for (var step = 0; step < trailSteps; step++) {
+              var past = time - trailSpan + trailSpan * step / (trailSteps - 1);
+              particlePoint(particle, past, trailVec, false);
+              trail.array[step * 3] = trailVec.x;
+              trail.array[step * 3 + 1] = trailVec.y;
+              trail.array[step * 3 + 2] = trailVec.z;
+            }
+            trail.geometry.attributes.position.needsUpdate = true;
+          });
         };
         resetModel = function () { time = 0; updateModel(0); };
         updateModel(0);
