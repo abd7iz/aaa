@@ -464,10 +464,10 @@ if(type==='mitosis3d'){
   earthMaterial.onBeforeCompile=shader=>{
    shader.uniforms.uNightMap={value:nightMap};
    shader.uniforms.uSunDirection={value:new THREE.Vector3(1,0,0)};
-   shader.vertexShader=shader.vertexShader.replace('#include <common>','#include <common>\\nvarying vec3 vWorldNormal;');
-   shader.vertexShader=shader.vertexShader.replace('#include <beginnormal_vertex>','#include <beginnormal_vertex>\\nvWorldNormal = normalize(mat3(modelMatrix) * objectNormal);');
-   shader.fragmentShader=shader.fragmentShader.replace('#include <common>','#include <common>\\nuniform sampler2D uNightMap;\\nuniform vec3 uSunDirection;\\nvarying vec3 vWorldNormal;');
-   shader.fragmentShader=shader.fragmentShader.replace('#include <emissivemap_fragment>','#include <emissivemap_fragment>\\nfloat nightSide = 1.0 - smoothstep(-0.12,0.18,dot(normalize(vWorldNormal),normalize(uSunDirection)));\\nvec3 cityLights = texture2D(uNightMap, vUv).rgb;\\ntotalEmissiveRadiance += cityLights * nightSide * 1.2;');
+   shader.vertexShader=shader.vertexShader.replace('#include <common>','#include <common>\nvarying vec3 vWorldNormal;');
+   shader.vertexShader=shader.vertexShader.replace('#include <beginnormal_vertex>','#include <beginnormal_vertex>\nvWorldNormal = normalize(mat3(modelMatrix) * objectNormal);');
+   shader.fragmentShader=shader.fragmentShader.replace('#include <common>','#include <common>\nuniform sampler2D uNightMap;\nuniform vec3 uSunDirection;\nvarying vec3 vWorldNormal;');
+   shader.fragmentShader=shader.fragmentShader.replace('#include <emissivemap_fragment>','#include <emissivemap_fragment>\nfloat nightSide = 1.0 - smoothstep(-0.12,0.18,dot(normalize(vWorldNormal),normalize(uSunDirection)));\nvec3 cityLights = texture2D(uNightMap, vUv).rgb;\ntotalEmissiveRadiance += cityLights * nightSide * 1.2;');
    earthMaterial.userData.shader=shader;
   };
  }catch(_){}
