@@ -108,7 +108,7 @@ input[type=range]{width:100%;direction:ltr;accent-color:var(--ac);height:28px}
 <script>window.MUKHTABAR_CONFIG={AI_ENDPOINT:window.MUKHTABAR_AI_ENDPOINT||""};</script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/lucide@0.469.0/dist/umd/lucide.min.js"></script>
-<script src="./simulation-engine.js?v=11"></script>
+<script src="./simulation-engine.js?v=12"></script>
 <script>
 (function(){
 'use strict';
@@ -826,14 +826,25 @@ function viewViewer(expId,rec){
   pending=null;
   view.innerHTML='<section class="viewer"><header class="vhead"><button class="icon-btn" data-act="back" aria-label="رجوع">'+ic('arrow-right')+'</button><div class="vt"><b>'+esc(rec?rec.name:def.title)+'</b><small>'+(def.fieldLabel||FIELD[def.field])+'</small></div><button class="btn sm primary" id="saveBtn">'+ic('save')+' حفظ</button></header>'+
    '<div class="stage" id="stage"></div><div class="tabs"><button class="tab on" data-t="ctl">التحكم</button><button class="tab" data-t="exp">الشرح العلمي</button></div>'+
-   '<div class="panel"><div id="pCtl"><div class="actions" id="acts"></div><div class="info" id="info"></div><div id="sliders"></div><div class="reads" id="reads"></div></div><div id="pExp" class="exptext" hidden>'+def.explain+'</div></div></section>';
+   '<div class="panel"><div id="pCtl"><div class="actions" id="acts"></div><div class="sl" id="viewScaleWrap" hidden><div class="top"><span>حجم المشهد</span><b id="viewScaleValue">50%</b></div><input id="viewScale" type="range" min="0" max="100" step="1" value="50"><small class="mut">اسحب لتكبير أو تصغير الجهاز</small></div><div class="info" id="info"></div><div id="sliders"></div><div class="reads" id="reads"></div></div><div id="pExp" class="exptext" hidden>'+def.explain+'</div></div></section>';
   var host=$('#stage'),inst=null,curRec=rec||null;
   if(!window.THREE){host.innerHTML='<div class="glerr">تعذّر تحميل مكتبة Three.js (تحقق من الاتصال بالإنترنت ثم أعد فتح الصفحة).</div>';}
   else{
     try{inst=def.make(host,state);}
     catch(e){console.error('MUKHTABAR simulation error:',e);var msg=e&&e.message?e.message:String(e||'unknown');host.innerHTML='<div class="glerr"><b>تعذر تشغيل المحاكاة.</b><br><small>'+esc(msg)+'</small><br>إذا استمر الخطأ أرسل هذه الرسالة للدعم.</div>';}
   }
-  $$('.tab').forEach(function(b){b.addEventListener('click',function(){
+  var scaleWrap=$('#viewScaleWrap'),scaleInput=$('#viewScale'),scaleValue=$('#viewScaleValue');
+  if(inst&&def.spec&&def.spec.engine==='tokamak'&&typeof inst.setViewScale==='function'){
+    scaleWrap.hidden=false;
+    scaleInput.value=inst.getViewScale();
+    scaleValue.textContent=scaleInput.value+'%';
+    scaleInput.addEventListener('input',function(){
+      var v=Number(scaleInput.value);
+      inst.setViewScale(v);
+      scaleValue.textContent=v+'%';
+    });
+  }
+  $('.tab').forEach(function(b){b.addEventListener('click',function(){
     $$('.tab').forEach(function(x){x.classList.toggle('on',x===b);});
     $('#pCtl').hidden=b.dataset.t!=='ctl';$('#pExp').hidden=b.dataset.t!=='exp';
   });});
