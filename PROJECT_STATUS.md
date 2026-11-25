@@ -1,7 +1,7 @@
 # MUKHTABAR — Project Status
 
 Last updated: 2026-11-25
-Current UI asset version: v41
+Current UI asset version: v42
 
 ## Repository
 - Code: https://github.com/abd7iz/aaa
@@ -84,7 +84,7 @@ Current UI asset version: v41
 - Pressure: P=nRT/V; default approximately 99.8 kPa.
 - Nitrogen RMS speed estimate: vrms=√(3RT/M), M=0.028 kg/mol.
 - Volume moves the piston, temperature scales particle speed and amount scales visible particle count.
-- Assumptions: ideal gas, simple wall reflections; intermolecular collisions and the full Maxwell–Boltzmann distribution are not simulated.
+- Assumptions: ideal gas, independent Gaussian velocity components approximate the Maxwell–Boltzmann speed distribution; simple wall reflections are used, while intermolecular collisions are not simulated.
 
 ## Series RLC
 - Engine ID: rlc
