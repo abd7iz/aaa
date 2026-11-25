@@ -171,8 +171,8 @@ export default {
         }
         if (step.type === "user_input") {
           const text = getUserText(step);
-          if (!text || text.length > 2_000) {
-            return json({ error: "كل رسالة يجب أن تكون نصاً وأقل من 2000 حرف." }, 400, origin);
+          if (!text || text.length > 7_000) {
+            return json({ error: "كل رسالة يجب أن تكون نصاً وأقل من 7000 حرف." }, 400, origin);
           }
           userTurns += 1;
         } else if (!["thought", "model_output"].includes(step.type)) {
@@ -204,7 +204,7 @@ export default {
             input: history,
             generation_config: {
               thinking_level: "low",
-              max_output_tokens: 1_000
+              max_output_tokens: 1_800
             }
           })
         });
