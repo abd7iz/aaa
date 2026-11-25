@@ -51,7 +51,7 @@
     if (!raw || typeof raw !== 'object' || raw.schema !== 'mukhtabar-sim-v1') {
       throw new Error('صيغة التجربة التي أنشأها الذكاء الاصطناعي غير معروفة.');
     }
-    var engine = ['tokamak', 'wave', 'pendulum', 'interference', 'induction', 'diffraction', 'dipole', 'polarization', 'photoelectric', 'decay', 'bohr', 'blackbody', 'idealgas', 'scene'].indexOf(raw.engine) >= 0 ? raw.engine : null;
+    var engine = ['tokamak', 'wave', 'pendulum', 'interference', 'induction', 'diffraction', 'dipole', 'polarization', 'photoelectric', 'decay', 'bohr', 'blackbody', 'idealgas', 'rlc', 'scene'].indexOf(raw.engine) >= 0 ? raw.engine : null;
     if (!engine) throw new Error('نوع المحاكاة غير مدعوم في محرك المختبر الحالي.');
     var field = FIELDS.indexOf(raw.field) >= 0 ? raw.field : 'physics';
     var used = {}, controls = [];
@@ -122,6 +122,12 @@
       ensure(defaultControl('temperature', 'درجة حرارة الغاز', 150, 900, 10, 300, 'K'));
       ensure(defaultControl('amount', 'كمية الغاز', .05, .5, .01, .1, 'mol'));
       ensure(defaultControl('volume', 'حجم الوعاء', .5, 5, .1, 2.5, 'L'));
+    } else if (engine === 'rlc') {
+      ensure(defaultControl('voltage', 'سعة جهد المصدر', 1, 24, .5, 12, 'V'));
+      ensure(defaultControl('resistance', 'المقاومة R', 5, 100, 1, 20, 'Ω'));
+      ensure(defaultControl('inductance', 'الحث L', 10, 500, 5, 100, 'mH'));
+      ensure(defaultControl('capacitance', 'السعة C', 10, 1000, 10, 100, 'μF'));
+      ensure(defaultControl('frequency', 'تردد المصدر', 5, 200, 1, 50, 'Hz'));
     }
     if (!controls.length) controls.push(defaultControl('rate', 'معدل الحركة', .1, 3, .05, 1, '×'));
     if (controls.length > 7) controls = controls.slice(0, 7);
@@ -278,6 +284,35 @@
     };
   };
 
+  ENGINE.rlcState = function (voltagePeak, resistance, inductanceMilliH, capacitanceMicroF, frequencyHz) {
+    var V = Math.max(0, finite(voltagePeak, 12));
+    var R = Math.max(.0001, finite(resistance, 20));
+    var L = Math.max(.000001, finite(inductanceMilliH, 100) * 1e-3);
+    var C = Math.max(.000000001, finite(capacitanceMicroF, 100) * 1e-6);
+    var f = Math.max(.0001, finite(frequencyHz, 50));
+    var omega = 2 * Math.PI * f;
+    var XL = omega * L;
+    var XC = 1 / (omega * C);
+    var impedance = Math.sqrt(R * R + Math.pow(XL - XC, 2));
+    var currentPeak = V / impedance;
+    var phase = Math.atan2(XL - XC, R);
+    var resonance = 1 / (2 * Math.PI * Math.sqrt(L * C));
+    var quality = Math.sqrt(L / C) / R;
+    var currentRms = currentPeak / Math.sqrt(2);
+    return {
+      inductiveReactance: XL,
+      capacitiveReactance: XC,
+      impedance: impedance,
+      currentPeak: currentPeak,
+      currentRms: currentRms,
+      phaseRadians: phase,
+      phaseDegrees: phase * 180 / Math.PI,
+      resonanceFrequency: resonance,
+      qualityFactor: quality,
+      realPower: currentRms * currentRms * R
+    };
+  };
+
   function paramsFrom(def, state) {
     var out = {};
     def.params.forEach(function (p) {
@@ -297,7 +332,7 @@
       id: 'generated',
       field: spec.field === 'biology' ? 'bio' : 'phy',
       fieldLabel: ({ physics: 'الفيزياء', biology: 'الأحياء', chemistry: 'الكيمياء', astronomy: 'الفلك', mathematics: 'الرياضيات' })[spec.field],
-      icon: spec.engine === 'tokamak' ? 'atom' : spec.engine === 'wave' ? 'activity' : spec.engine === 'pendulum' ? 'clock' : spec.engine === 'interference' ? 'waves' : spec.engine === 'induction' ? 'zap' : spec.engine === 'diffraction' ? 'scan-eye' : spec.engine === 'dipole' ? 'magnet' : spec.engine === 'polarization' ? 'sun' : spec.engine === 'photoelectric' ? 'zap' : spec.engine === 'decay' ? 'atom' : spec.engine === 'bohr' ? 'orbit' : spec.engine === 'blackbody' ? 'thermometer-sun' : spec.engine === 'idealgas' ? 'gauge' : 'shapes',
+      icon: spec.engine === 'tokamak' ? 'atom' : spec.engine === 'wave' ? 'activity' : spec.engine === 'pendulum' ? 'clock' : spec.engine === 'interference' ? 'waves' : spec.engine === 'induction' ? 'zap' : spec.engine === 'diffraction' ? 'scan-eye' : spec.engine === 'dipole' ? 'magnet' : spec.engine === 'polarization' ? 'sun' : spec.engine === 'photoelectric' ? 'zap' : spec.engine === 'decay' ? 'atom' : spec.engine === 'bohr' ? 'orbit' : spec.engine === 'blackbody' ? 'thermometer-sun' : spec.engine === 'idealgas' ? 'gauge' : spec.engine === 'rlc' ? 'activity' : 'shapes',
       title: spec.title,
       short: spec.summary,
       spec: spec,
@@ -416,6 +451,23 @@
           rows.push(['الضغط الجوي النسبي', gas.pressureAtm.toFixed(3) + ' atm']);
           rows.push(['سرعة الجذر التربيعي المتوسطة (N₂)', gas.rmsSpeed.toFixed(1) + ' m/s']);
           rows.push(['كثافة كمية المادة', gas.numberDensityMolM3.toFixed(2) + ' mol/m³']);
+        }
+        if (spec.engine === 'rlc') {
+          var circuitState = ENGINE.rlcState(
+            param(prm, 'voltage', 12),
+            param(prm, 'resistance', 20),
+            param(prm, 'inductance', 100),
+            param(prm, 'capacitance', 100),
+            param(prm, 'frequency', 50)
+          );
+          rows.push(['الممانعة Z', circuitState.impedance.toFixed(2) + ' Ω']);
+          rows.push(['التيار الفعال Irms', circuitState.currentRms.toFixed(3) + ' A']);
+          rows.push(['المفاعلة الحثية XL', circuitState.inductiveReactance.toFixed(2) + ' Ω']);
+          rows.push(['المفاعلة السعوية XC', circuitState.capacitiveReactance.toFixed(2) + ' Ω']);
+          rows.push(['فرق الطور', circuitState.phaseDegrees.toFixed(2) + '°']);
+          rows.push(['تردد الرنين', circuitState.resonanceFrequency.toFixed(2) + ' Hz']);
+          rows.push(['عامل الجودة Q', circuitState.qualityFactor.toFixed(2)]);
+          rows.push(['القدرة الحقيقية', circuitState.realPower.toFixed(2) + ' W']);
         }
         return rows;
       };
@@ -2270,6 +2322,157 @@
         st.sph.r = 10.2;
         st.place();
 
+      } else if (spec.engine === 'rlc') {
+        // Series RLC circuit and dual-trace AC oscilloscope.
+        var wireMaterial = new T.MeshPhongMaterial({ color: 0x9aaebc, metalness: .82, shininess: 95 });
+        var copperMaterial = new T.MeshPhongMaterial({ color: 0xc47a43, emissive: 0x2c1107, specular: 0xffd0a3, shininess: 95 });
+        var resistorMaterial = new T.MeshPhongMaterial({ color: 0xb84d3e, emissive: 0x2a0806, shininess: 65 });
+        var insulatorMaterial = new T.MeshPhongMaterial({ color: 0x25384a, metalness: .3, shininess: 45 });
+        function circuitWire(a, b, radius) {
+          var va = new T.Vector3(a[0], a[1], a[2] || 0);
+          var vb = new T.Vector3(b[0], b[1], b[2] || 0);
+          var curve = new T.LineCurve3(va, vb);
+          S.add(new T.Mesh(new T.TubeGeometry(curve, 1, radius || .035, 8, false), wireMaterial));
+        }
+
+        circuitWire([-2, 1.35, 0], [-.45, 1.35, 0]);
+        circuitWire([.45, 1.35, 0], [2, 1.35, 0]);
+        circuitWire([2, 1.35, 0], [2, .55, 0]);
+        circuitWire([2, -.55, 0], [2, -1.35, 0]);
+        circuitWire([2, -1.35, 0], [.22, -1.35, 0]);
+        circuitWire([-.22, -1.35, 0], [-2, -1.35, 0]);
+        circuitWire([-2, -1.35, 0], [-2, -.48, 0]);
+        circuitWire([-2, .48, 0], [-2, 1.35, 0]);
+
+        var sourceRing = new T.Mesh(new T.TorusGeometry(.46, .055, 10, 56), wireMaterial);
+        sourceRing.position.set(-2, 0, 0);
+        S.add(sourceRing);
+        var sourceCore = new T.Mesh(new T.SphereGeometry(.17, 20, 16),
+          new T.MeshPhongMaterial({ color: 0x55dfff, emissive: 0x167da1, emissiveIntensity: .7 }));
+        sourceCore.position.set(-2, 0, .02);
+        S.add(sourceCore);
+
+        var resistor = new T.Mesh(new T.BoxGeometry(.82, .36, .34), resistorMaterial);
+        resistor.position.set(0, 1.35, 0);
+        S.add(resistor);
+
+        var inductorCore = new T.Mesh(new T.CylinderGeometry(.20, .20, .9, 20), insulatorMaterial);
+        inductorCore.position.set(2, 0, 0);
+        S.add(inductorCore);
+        for (var coil = 0; coil < 7; coil++) {
+          var winding = new T.Mesh(new T.TorusGeometry(.24, .045, 8, 28), copperMaterial);
+          winding.position.set(2, .42 - coil * .14, 0);
+          winding.rotation.x = Math.PI / 2;
+          S.add(winding);
+        }
+
+        var plateMaterial = new T.MeshPhongMaterial({ color: 0xcbd6dd, metalness: .86, shininess: 110 });
+        [-.16, .16].forEach(function (x) {
+          var plate = new T.Mesh(new T.BoxGeometry(.065, .72, .46), plateMaterial);
+          plate.position.set(x, -1.35, 0);
+          S.add(plate);
+        });
+
+        var graphWidth = 5.15, graphBaseY = -2.35, graphAmplitude = .34, graphZ = .28, graphCount = 160;
+        var voltagePositions = new Float32Array((graphCount + 1) * 3);
+        var currentPositions = new Float32Array((graphCount + 1) * 3);
+        var voltageGeometry = new T.BufferGeometry();
+        voltageGeometry.setAttribute('position', new T.BufferAttribute(voltagePositions, 3));
+        var currentGeometry = new T.BufferGeometry();
+        currentGeometry.setAttribute('position', new T.BufferAttribute(currentPositions, 3));
+        var voltageTrace = new T.Line(voltageGeometry,
+          new T.LineBasicMaterial({ color: 0x4bd4ff, transparent: true, opacity: .95 }));
+        var currentTrace = new T.Line(currentGeometry,
+          new T.LineBasicMaterial({ color: 0xffc36b, transparent: true, opacity: .95 }));
+        S.add(voltageTrace); S.add(currentTrace);
+        var scopeAxis = new T.BufferGeometry().setFromPoints([
+          new T.Vector3(-graphWidth / 2, graphBaseY, graphZ),
+          new T.Vector3(graphWidth / 2, graphBaseY, graphZ)
+        ]);
+        S.add(new T.Line(scopeAxis, new T.LineBasicMaterial({ color: 0x64748b, transparent: true, opacity: .45 })));
+
+        var carrierCount = 28, carrierPositions = new Float32Array(carrierCount * 3);
+        var carrierGeometry = new T.BufferGeometry();
+        carrierGeometry.setAttribute('position', new T.BufferAttribute(carrierPositions, 3));
+        var carriers = new T.Points(carrierGeometry, new T.PointsMaterial({
+          color: 0x62e5ff, size: .11, transparent: true, opacity: .95,
+          blending: T.AdditiveBlending, depthWrite: false
+        }));
+        S.add(carriers);
+        var circuitPath = [[-2, 1.35], [2, 1.35], [2, -1.35], [-2, -1.35], [-2, 1.35]];
+        var segmentLengths = [], totalLength = 0;
+        for (var si = 0; si < circuitPath.length - 1; si++) {
+          var dx = circuitPath[si + 1][0] - circuitPath[si][0];
+          var dy = circuitPath[si + 1][1] - circuitPath[si][1];
+          var length = Math.sqrt(dx * dx + dy * dy);
+          segmentLengths.push({ length: length, start: totalLength, dx: dx, dy: dy });
+          totalLength += length;
+        }
+        function circuitPoint(progress, out) {
+          var distance = ((progress % 1) + 1) % 1 * totalLength;
+          var segment = segmentLengths[segmentLengths.length - 1];
+          var segmentIndex = segmentLengths.length - 1;
+          for (var si = 0; si < segmentLengths.length; si++) {
+            if (distance <= segmentLengths[si].start + segmentLengths[si].length) {
+              segment = segmentLengths[si];
+              segmentIndex = si;
+              break;
+            }
+          }
+          var u = clamp((distance - segment.start) / segment.length, 0, 1);
+          var startPoint = circuitPath[segmentIndex];
+          return out.set(startPoint[0] + segment.dx * u, startPoint[1] + segment.dy * u, .15);
+        }
+        var carrierVector = new T.Vector3();
+        var scopeMarkerV = new T.Mesh(new T.SphereGeometry(.06, 12, 10), new T.MeshBasicMaterial({ color: 0x4bd4ff }));
+        var scopeMarkerI = new T.Mesh(new T.SphereGeometry(.06, 12, 10), new T.MeshBasicMaterial({ color: 0xffc36b }));
+        S.add(scopeMarkerV); S.add(scopeMarkerI);
+
+        updateModel = function () {
+          var voltage = param(prm, 'voltage', 12);
+          var frequency = param(prm, 'frequency', 50);
+          var state = ENGINE.rlcState(
+            voltage, param(prm, 'resistance', 20),
+            param(prm, 'inductance', 100), param(prm, 'capacitance', 100), frequency
+          );
+          var phase = 2 * Math.PI * frequency * time;
+          var currentNow = state.currentPeak * Math.sin(phase - state.phaseRadians);
+          for (var gi = 0; gi <= graphCount; gi++) {
+            var x = -graphWidth / 2 + graphWidth * gi / graphCount;
+            var q = gi / graphCount * Math.PI * 2;
+            voltagePositions[gi * 3] = x;
+            voltagePositions[gi * 3 + 1] = graphBaseY + Math.sin(q + phase) * graphAmplitude;
+            voltagePositions[gi * 3 + 2] = graphZ + .03;
+            currentPositions[gi * 3] = x;
+            currentPositions[gi * 3 + 1] = graphBaseY + Math.sin(q + phase - state.phaseRadians) * graphAmplitude;
+            currentPositions[gi * 3 + 2] = graphZ - .03;
+          }
+          voltageGeometry.attributes.position.needsUpdate = true;
+          currentGeometry.attributes.position.needsUpdate = true;
+          var cycle = ((phase % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2);
+          var markerX = -graphWidth / 2 + graphWidth * cycle / (Math.PI * 2);
+          scopeMarkerV.position.set(markerX, graphBaseY + Math.sin(cycle) * graphAmplitude, graphZ + .05);
+          scopeMarkerI.position.set(markerX, graphBaseY + Math.sin(cycle - state.phaseRadians) * graphAmplitude, graphZ - .05);
+
+          var direction = currentNow >= 0 ? 1 : -1;
+          var movement = time * (.16 + Math.abs(currentNow) * .07) * direction;
+          for (var ci = 0; ci < carrierCount; ci++) {
+            circuitPoint(ci / carrierCount + movement, carrierVector);
+            carrierPositions[ci * 3] = carrierVector.x;
+            carrierPositions[ci * 3 + 1] = carrierVector.y;
+            carrierPositions[ci * 3 + 2] = carrierVector.z;
+          }
+          carrierGeometry.attributes.position.needsUpdate = true;
+          carriers.material.opacity = .22 + Math.min(.72, Math.abs(currentNow) / Math.max(.001, state.currentPeak) * .72);
+          carriers.material.color.set(currentNow >= 0 ? 0x62e5ff : 0xffc36b);
+          sourceCore.material.emissiveIntensity = .25 + .7 * Math.abs(Math.sin(phase));
+        };
+        resetModel = function () { time = 0; updateModel(0); };
+        updateModel(0);
+        st.sph.r = 10.8;
+        st.place();
+      } else {
+        var meshes = [];
         spec.objects.forEach(function (o) {
           var g;
           if (o.type === 'sphere') g = new T.SphereGeometry(.5, 32, 24);
@@ -2347,6 +2550,7 @@
           if (spec.engine === 'bohr') return 'في نموذج بور للأيونات الشبيهة بالهيدروجين تكون طاقة المستوى En = −13.6 Z²/n² eV. عند الانتقال بين مستويين تتغير طاقة الذرة بمقدار ΔE = 13.6 Z²|1/nf² − 1/ni²|، وتُحمل هذه الطاقة بفوتون طوله الموجي λ = hc/ΔE. هذا نموذج مبسط، ولا يصف الذرات متعددة الإلكترونات أو البنية الدقيقة للخطوط الطيفية.';
           if (spec.engine === 'blackbody') return 'يصف قانون بلانك التوزيع الطيفي لإشعاع الجسم الأسود حسب الطول الموجي ودرجة الحرارة. تنتقل قمة الطيف مع الحرارة وفق قانون فين λmax = 2.8978×10⁶/T nm، بينما تتناسب القدرة الكلية المشعة لكل وحدة مساحة مع T⁴ وفق قانون ستيفان–بولتزمان. الرسم يعرض طيفاً نسبياً ضمن نطاق 100–2400 nm؛ والقدرة الكلية المعروضة محسوبة لمساحة السطح المختارة. النموذج يفترض باعثاً مثالياً بمعامل انبعاث يساوي واحداً.';
           if (spec.engine === 'idealgas') return 'يطبق النموذج قانون الغاز المثالي PV=nRT. درجة الحرارة تغيّر السرعة المتوسطة للجسيمات تقريبياً وفق الجذر التربيعي لـ T، وكمية الغاز تحدد عدد الجسيمات المعروضة، والحجم يحرك المكبس. الجسيمات تتحرك وترتد عن الجدران، لكن لا نحسب التصادمات البينية التفصيلية أو التوزيع الكامل لسرعات ماكسويل–بولتزمان.';
+          if (spec.engine === 'rlc') return 'تتصل المقاومة والملف والمكثف على التوالي بمصدر متناوب. المفاعلة الحثية XL=ωL والمفاعلة السعوية XC=1/(ωC)، والممانعة Z=√(R²+(XL−XC)²). يبلغ التيار أعظمه قرب تردد الرنين f0=1/(2π√LC). يعرض المنظار موجتي الجهد والتيار وفرق الطور بينهما. نهمل مقاومة الملف الداخلية والطفيليات وتأثير الحمل غير المثالي.';
           return spec.assumptions || spec.principle || spec.summary;
         },
         dispose: function () { st.dispose(); }
