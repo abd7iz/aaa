@@ -95,3 +95,11 @@ https://abd7iz.github.io/aaa/
 - القانون: `I = I₁ cos²(θ)`; للمصدر غير المستقطب `I₁ = I₀/2` بعد المستقطب الأول.
 - يعرض مرشحين خطيين، دوران المحلل، حزمة الضوء، وشدة البقعة على الشاشة.
 - الافتراضات: مستقطبات مثالية، ويهمل الامتصاص والانعكاس والاستقطاب الجزئي.
+
+
+### Physics helper validation
+The simulation engine exposes shared, testable helpers for:
+- The ideal dipole field components and magnitude.
+- Malus' law transmission for two ideal linear polarizers.
+
+CI checks the axial/equatorial dipole field values and Malus-law values at 0°, 45° and 90°, in addition to experiment schema defaults.
