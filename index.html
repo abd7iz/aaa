@@ -1193,7 +1193,7 @@ function demoInterpret(text){
   return {expId:id,params:clampParams(id,raw,notes),notes:notes};
 }
 async function aiGenerate(prompt){
-  var ctl=new AbortController(),timer=setTimeout(function(){ctl.abort();},35000);
+  var ctl=new AbortController(),timer=setTimeout(function(){ctl.abort();},120000);
   try{
     var requestPrompt=[
       'أنت مهندس يبني تجارب علمية تفاعلية لمختبر MUKHTABAR. أخرج إعداداً قابلاً للتشغيل بصيغة JSON فقط.',
