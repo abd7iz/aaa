@@ -1,7 +1,7 @@
 # MUKHTABAR — Project Status
 
 Last updated: 2026-11-25
-Current UI asset version: v28
+Current UI asset version: v29
 
 ## Repository
 - Code: https://github.com/abd7iz/aaa
@@ -27,9 +27,16 @@ Current UI asset version: v28
 - Diffraction: `I ∝ sinc²(α)[sin(Nβ)/(N sinβ)]²`; defaults λ=550 nm, d=5 μm, N=5, slit width=0.35 μm and L=1.5 m. Fraunhofer approximation.
 - Dipole: `r=L sin²(θ)`; `B=μ₀m/(4πr³)√(1+3cos²θ)`; assumes an ideal dipole outside the magnet.
 
+## Polarization experiment
+- Engine ID: polarization
+- Defaults: analyzer angle 35°, wavelength 550 nm, source intensity 100%.
+- Model: Malus' law with unpolarized source; intensity after first polarizer is I₀/2, then I=(I₀/2)cos²θ.
+- Displays two linear polarizers, rotating analyzer, light beam and output screen brightness.
+- Assumes ideal polarizers; absorption, reflections and partial polarization are omitted.
+
 ## Validation
 - CI parses all inline app scripts, simulation-engine.js, Worker and config.
-- Node smoke tests verify interference, induction, diffraction and dipole schemas and default controls.
+- Node smoke tests verify interference, induction, diffraction, dipole and polarization schemas and default controls.
 - Syntax/CI success does not replace visual testing on the user's Android device.
 
 ## Next priorities
