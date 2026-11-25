@@ -183,7 +183,29 @@ jobs:
           assert.ok(Math.abs(decayHalf.expectedRemaining - 100) < 1e-12);
           assert.ok(Math.abs(decayHalf.decayConstant - Math.LN2 / 6) < 1e-12);
           assert.ok(Math.abs(medianLifetime - 6) < 1e-12);
-          console.log('Optics, dipole, photoelectric and radioactive-decay physics/schema checks passed.');
+          const bohr = api.normalizeSpec({
+            schema: 'mukhtabar-sim-v1',
+            title: 'طيف ذرة الهيدروجين',
+            field: 'physics',
+            engine: 'bohr',
+            controls: []
+          });
+          assert.equal(bohr.engine, 'bohr');
+          assert.deepEqual(Array.from(bohr.controls, c => c.key), ['atomic_number', 'initial_level', 'final_level']);
+          assert.deepEqual(Array.from(bohr.controls, c => c.value), [1, 3, 2]);
+          const hAlpha = api.bohrTransition(1, 3, 2);
+          const lymanAlpha = api.bohrTransition(1, 2, 1);
+          const absorption = api.bohrTransition(1, 1, 2);
+          const noJump = api.bohrTransition(1, 2, 2);
+          assert.equal(hAlpha.type, 'emission');
+          assert.ok(Math.abs(hAlpha.energy - 1.88967958) < 1e-7);
+          assert.ok(hAlpha.wavelength > 656 && hAlpha.wavelength < 657);
+          assert.equal(lymanAlpha.type, 'emission');
+          assert.ok(lymanAlpha.wavelength > 121 && lymanAlpha.wavelength < 122);
+          assert.equal(absorption.type, 'absorption');
+          assert.equal(noJump.type, 'none');
+          assert.equal(noJump.wavelength, null);
+          console.log('Optics, dipole, photoelectric, decay and Bohr atomic-spectrum physics/schema checks passed.');
           NODE
           node --check ai-worker/worker.js
           node --check ai-config.js
