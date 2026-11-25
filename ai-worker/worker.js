@@ -1,16 +1,12 @@
-const API_URL = "https://generativelanguage.googleapis.com/v1beta/interactions";
 const MODELS_URL = "https://generativelanguage.googleapis.com/v1beta/models?pageSize=1000";
 const MODEL_CACHE_MS = 10 * 60 * 1000;
 let modelCache = { expires: 0, models: [] };
 
-// Explicit allowlist: only models Google documents for the Interactions API.
-const INTERACTIONS_MODELS = [
-  "gemini-3.1-flash-lite", "gemini-3.5-flash-lite", "gemini-3.5-flash",
-  "gemini-3.6-flash", "gemini-3.7-flash", "gemini-3.8-flash", "gemini-4-hydrogen"
-];
+// Prefer models actually returned by this API key; keep a known-compatible fallback.
 const MODEL_PREFERENCE = [
-  "gemini-3.1-flash-lite", "gemini-3.5-flash-lite", "gemini-3.5-flash",
-  "gemini-3.7-flash", "gemini-3.6-flash", "gemini-3.8-flash", "gemini-4-hydrogen"
+  "gemini-3.8-flash", "gemini-3.7-flash", "gemini-3.6-flash",
+  "gemini-3.5-flash", "gemini-3.5-flash-lite",
+  "gemini-3.1-flash-lite", "gemini-2.5-flash", "gemini-2.5-flash-lite"
 ];
 
 async function discoverModels(apiKey) {
@@ -25,20 +21,39 @@ async function discoverModels(apiKey) {
     const available = new Set((data.models || [])
       .filter(model => (model.supportedGenerationMethods || []).includes("generateContent"))
       .map(model => (model.baseModelId || model.name || "").replace(/^models\//, "")));
-    const discovered = MODEL_PREFERENCE.filter(name =>
-      INTERACTIONS_MODELS.includes(name) && available.has(name)
-    );
+    const discovered = MODEL_PREFERENCE.filter(name => available.has(name));
     if (discovered.length) {
       modelCache = { expires: now + MODEL_CACHE_MS, models: discovered };
       return discovered;
     }
   } catch (error) {
-    console.error("Gemini model discovery failed; using documented compatibility list.");
+    console.error("Gemini model discovery failed; using compatibility fallback.");
   }
-  const fallback = ["gemini-3.1-flash-lite", "gemini-3.5-flash-lite", "gemini-3.8-flash"];
+  const fallback = ["gemini-2.5-flash", "gemini-2.5-flash-lite", "gemini-3.1-flash-lite"];
   modelCache = { expires: now + 60_000, models: fallback };
   return fallback;
 }
+
+function stepText(step) {
+  if (!step || typeof step !== "object") return "";
+  if (typeof step.content === "string") return step.content;
+  if (Array.isArray(step.content)) {
+    return step.content
+      .filter(item => item && item.type === "text" && typeof item.text === "string")
+      .map(item => item.text).join("\n");
+  }
+  return "";
+}
+
+function toGenerateContent(history) {
+  return history.filter(step => step && ["user_input", "model_output"].includes(step.type))
+    .map(step => ({
+      role: step.type === "user_input" ? "user" : "model",
+      parts: [{ text: stepText(step) }]
+    }))
+    .filter(item => item.parts[0].text.trim());
+}
+
 const SYSTEM_INSTRUCTION = `أنت مساعد مختبر MUKHTABAR العلمي باللغة العربية الواضحة. اشرح الفيزياء والرياضيات والأحياء والكيمياء بمستوى تدريجي، وابدأ بالفكرة ثم المعادلة ثم التعويض والوحدات. كن دقيقاً، وميّز بين النموذج المثالي والواقع، ولا تخترع قيماً أو نتائج. عندما يرسل المستخدم سياق تجربة حاضرة، استخدم متغيراتها الفعلية في الشرح. إذا لم تكن متأكداً فقل ذلك. لا تدّعِ أنك نفذت محاكاة أو قياساً لم تنفذه. اجعل الإجابة واضحة ومباشرة.`;
 
 const rateBuckets = new Map();
@@ -185,26 +200,30 @@ export default {
       }
 
       const candidates = await discoverModels(env.GEMINI_API_KEY);
+      const contents = toGenerateContent(history);
+      if (!contents.length || contents[contents.length - 1].role !== "user") {
+        return json({ error: "صيغة سجل المحادثة غير صحيحة." }, 400, origin);
+      }
+
       let upstream;
       let payload = {};
       let activeModel = candidates[0];
       for (const candidate of candidates.slice(0, 5)) {
         activeModel = candidate;
-        upstream = await fetch(API_URL, {
+        const endpoint = "https://generativelanguage.googleapis.com/v1beta/models/" +
+          encodeURIComponent(candidate) + ":generateContent";
+        upstream = await fetch(endpoint, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            "x-goog-api-key": env.GEMINI_API_KEY,
-            "Api-Revision": "2026-05-20"
+            "x-goog-api-key": env.GEMINI_API_KEY
           },
           body: JSON.stringify({
-            model: candidate,
-            store: false,
-            system_instruction: SYSTEM_INSTRUCTION,
-            input: history,
-            generation_config: {
-              thinking_level: "low",
-              max_output_tokens: 1_800
+            systemInstruction: { parts: [{ text: SYSTEM_INSTRUCTION }] },
+            contents,
+            generationConfig: {
+              thinkingConfig: { thinkingLevel: "low" },
+              maxOutputTokens: 1800
             }
           })
         });
@@ -231,12 +250,10 @@ export default {
         return json({ error: "تعذر على Gemini إكمال الطلب حالياً. " + upstreamMessage + " (HTTP " + upstream.status + ", model " + activeModel + ")" }, 502, origin);
       }
 
-      const steps = Array.isArray(payload.steps) ? payload.steps : [];
-      const reply = steps
-        .filter(step => step && step.type === "model_output" && Array.isArray(step.content))
-        .flatMap(step => step.content
-          .filter(item => item && item.type === "text" && typeof item.text === "string")
-          .map(item => item.text))
+      const reply = (payload.candidates || [])
+        .flatMap(candidate => candidate.content?.parts || [])
+        .filter(part => typeof part.text === "string")
+        .map(part => part.text)
         .join("\n").trim();
 
       if (!reply) {
