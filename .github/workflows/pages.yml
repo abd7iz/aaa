@@ -87,7 +87,8 @@ jobs:
             "} else if (spec.engine === 'dipole') {",
             "} else if (spec.engine === 'diffraction') {",
             "} else if (spec.engine === 'wave') {",
-            "} else if (spec.engine === 'pendulum') {"
+            "} else if (spec.engine === 'pendulum') {",
+            "} else if (spec.engine === 'blackbody') {"
           ];
           for (const marker of branchMarkers) assert.ok(engineSource.includes(marker), "Missing simulation branch: " + marker);
           const sandbox = { window: {} };
@@ -220,7 +221,24 @@ jobs:
           assert.equal(absorption.type, 'absorption');
           assert.equal(noJump.type, 'none');
           assert.equal(noJump.wavelength, null);
-          console.log('Optics, dipole, photoelectric, decay and Bohr atomic-spectrum physics/schema checks passed.');
+          const blackbody = api.normalizeSpec({
+            schema: 'mukhtabar-sim-v1',
+            title: 'إشعاع الجسم الأسود',
+            field: 'physics',
+            engine: 'blackbody',
+            controls: []
+          });
+          assert.equal(blackbody.engine, 'blackbody');
+          assert.deepEqual(Array.from(blackbody.controls, c => c.key), ['temperature', 'surface_area']);
+          assert.deepEqual(Array.from(blackbody.controls, c => c.value), [5800, 0.01]);
+          const sunPeak = api.wienPeakNm(5800);
+          assert.ok(sunPeak > 499 && sunPeak < 501);
+          const peakValue = api.blackbodySpectrum(5800, sunPeak);
+          assert.ok(peakValue > api.blackbodySpectrum(5800, sunPeak * .7));
+          assert.ok(peakValue > api.blackbodySpectrum(5800, sunPeak * 1.4));
+          const power = api.stefanBoltzmannPower(5800, .01);
+          assert.ok(power > 60000 && power < 65000);
+          console.log('Optics, atomic spectra, blackbody, dipole and radioactive/quantum physics checks passed.');
           NODE
           node --check ai-worker/worker.js
           node --check ai-config.js
