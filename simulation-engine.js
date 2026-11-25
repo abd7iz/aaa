@@ -51,7 +51,7 @@
     if (!raw || typeof raw !== 'object' || raw.schema !== 'mukhtabar-sim-v1') {
       throw new Error('صيغة التجربة التي أنشأها الذكاء الاصطناعي غير معروفة.');
     }
-    var engine = ['tokamak', 'wave', 'pendulum', 'interference', 'induction', 'diffraction', 'dipole', 'polarization', 'photoelectric', 'decay', 'bohr', 'blackbody', 'idealgas', 'rlc', 'doppler', 'standingwave', 'collision', 'titration', 'scene'].indexOf(raw.engine) >= 0 ? raw.engine : null;
+    var engine = ['tokamak', 'wave', 'pendulum', 'interference', 'induction', 'diffraction', 'dipole', 'polarization', 'photoelectric', 'decay', 'bohr', 'blackbody', 'idealgas', 'rlc', 'doppler', 'standingwave', 'collision', 'titration', 'electrostatic', 'scene'].indexOf(raw.engine) >= 0 ? raw.engine : null;
     if (!engine) throw new Error('نوع المحاكاة غير مدعوم في محرك المختبر الحالي.');
     var field = FIELDS.indexOf(raw.field) >= 0 ? raw.field : 'physics';
     var used = {}, controls = [];
@@ -151,6 +151,12 @@
       ensure(defaultControl('base_concentration', 'تركيز القاعدة', .05, 1, .01, .1, 'M'));
       ensure(defaultControl('acid_volume', 'حجم الحمض الابتدائي', 10, 100, 1, 25, 'mL'));
       ensure(defaultControl('base_added', 'حجم القاعدة المضافة', 0, 100, .5, 25, 'mL'));
+    } else if (engine === 'electrostatic') {
+      ensure(defaultControl('charge1', 'الشحنة الأولى', -5, 5, .1, 1, 'nC'));
+      ensure(defaultControl('charge2', 'الشحنة الثانية', -5, 5, .1, -1, 'nC'));
+      ensure(defaultControl('separation', 'المسافة بين الشحنتين', .5, 3, .1, 1, 'm'));
+      ensure(defaultControl('probe_x', 'موضع المجس الأفقي', -4, 4, .1, 0, 'm'));
+      ensure(defaultControl('probe_y', 'موضع المجس العمودي', -3, 3, .1, 0, 'm'));
     }
     if (!controls.length) controls.push(defaultControl('rate', 'معدل الحركة', .1, 3, .05, 1, '×'));
     if (controls.length > 7) controls = controls.slice(0, 7);
@@ -439,6 +445,22 @@
     };
   };
 
+  ENGINE.coulombField = function (charge1NanoC, charge2NanoC, separationM, probeX, probeY) {
+    var q1 = finite(charge1NanoC, 1) * 1e-9;
+    var q2 = finite(charge2NanoC, -1) * 1e-9;
+    var d = Math.max(.001, finite(separationM, 1));
+    var x = finite(probeX, 0), y = finite(probeY, 0);
+    var k = 8.9875517923e9;
+    var x1 = -d / 2, x2 = d / 2;
+    var dx1 = x - x1, dy1 = y, r21 = Math.max(.0025, dx1 * dx1 + dy1 * dy1);
+    var dx2 = x - x2, dy2 = y, r22 = Math.max(.0025, dx2 * dx2 + dy2 * dy2);
+    var r1 = Math.sqrt(r21), r2 = Math.sqrt(r22);
+    var Ex = k * q1 * dx1 / (r21 * r1) + k * q2 * dx2 / (r22 * r2);
+    var Ey = k * q1 * dy1 / (r21 * r1) + k * q2 * dy2 / (r22 * r2);
+    var V = k * q1 / r1 + k * q2 / r2;
+    return { fieldX: Ex, fieldY: Ey, magnitude: Math.sqrt(Ex * Ex + Ey * Ey), potential: V };
+  };
+
   function paramsFrom(def, state) {
     var out = {};
     def.params.forEach(function (p) {
@@ -458,7 +480,7 @@
       id: 'generated',
       field: spec.field === 'biology' ? 'bio' : 'phy',
       fieldLabel: ({ physics: 'الفيزياء', biology: 'الأحياء', chemistry: 'الكيمياء', astronomy: 'الفلك', mathematics: 'الرياضيات' })[spec.field],
-      icon: spec.engine === 'tokamak' ? 'atom' : spec.engine === 'wave' ? 'activity' : spec.engine === 'pendulum' ? 'clock' : spec.engine === 'interference' ? 'waves' : spec.engine === 'induction' ? 'zap' : spec.engine === 'diffraction' ? 'scan-eye' : spec.engine === 'dipole' ? 'magnet' : spec.engine === 'polarization' ? 'sun' : spec.engine === 'photoelectric' ? 'zap' : spec.engine === 'decay' ? 'atom' : spec.engine === 'bohr' ? 'orbit' : spec.engine === 'blackbody' ? 'thermometer-sun' : spec.engine === 'idealgas' ? 'gauge' : spec.engine === 'rlc' ? 'activity' : spec.engine === 'doppler' ? 'audio-lines' : spec.engine === 'standingwave' ? 'waves' : spec.engine === 'collision' ? 'arrow-left-right' : spec.engine === 'titration' ? 'flask-conical' : 'shapes',
+      icon: spec.engine === 'tokamak' ? 'atom' : spec.engine === 'wave' ? 'activity' : spec.engine === 'pendulum' ? 'clock' : spec.engine === 'interference' ? 'waves' : spec.engine === 'induction' ? 'zap' : spec.engine === 'diffraction' ? 'scan-eye' : spec.engine === 'dipole' ? 'magnet' : spec.engine === 'polarization' ? 'sun' : spec.engine === 'photoelectric' ? 'zap' : spec.engine === 'decay' ? 'atom' : spec.engine === 'bohr' ? 'orbit' : spec.engine === 'blackbody' ? 'thermometer-sun' : spec.engine === 'idealgas' ? 'gauge' : spec.engine === 'rlc' ? 'activity' : spec.engine === 'doppler' ? 'audio-lines' : spec.engine === 'standingwave' ? 'waves' : spec.engine === 'collision' ? 'arrow-left-right' : spec.engine === 'titration' ? 'flask-conical' : spec.engine === 'electrostatic' ? 'zap' : 'shapes',
       title: spec.title,
       short: spec.summary,
       spec: spec,
@@ -648,6 +670,20 @@
           rows.push(['حجم التكافؤ', titration.equivalenceVolumeMl.toFixed(2) + ' mL']);
           rows.push(['حجم القاعدة المضاف', param(prm, 'base_added', 25).toFixed(1) + ' mL']);
           rows.push(['الحالة الكيميائية', titration.excess === 'acid' ? 'الحمض فائض' : titration.excess === 'base' ? 'القاعدة فائضة' : 'نقطة التكافؤ']);
+        }
+        if (spec.engine === 'electrostatic') {
+          var field = ENGINE.coulombField(
+            param(prm, 'charge1', 1),
+            param(prm, 'charge2', -1),
+            param(prm, 'separation', 1),
+            param(prm, 'probe_x', 0),
+            param(prm, 'probe_y', 0)
+          );
+          rows.push(['شدة المجال |E|', field.magnitude.toFixed(2) + ' N/C']);
+          rows.push(['المركبة Ex', field.fieldX.toFixed(2) + ' N/C']);
+          rows.push(['المركبة Ey', field.fieldY.toFixed(2) + ' N/C']);
+          rows.push(['الجهد الكهربائي V', field.potential.toFixed(2) + ' V']);
+          rows.push(['زاوية المجال', (Math.atan2(field.fieldY, field.fieldX) * 180 / Math.PI).toFixed(1) + '°']);
         }
         return rows;
       };
@@ -3117,6 +3153,127 @@
         updateModel(0);
         st.sph.r = 10.3;
         st.place();
+      } else if (spec.engine === 'electrostatic') {
+        // Two point charges, Coulomb field lines and a movable electric-field probe.
+        var chargeGroup = new T.Group();
+        S.add(chargeGroup);
+        var chargeMeshes = [];
+        function makeChargeLabel(sign) {
+          var canvas = document.createElement('canvas');
+          canvas.width = 128; canvas.height = 128;
+          var ctx = canvas.getContext('2d');
+          ctx.clearRect(0, 0, 128, 128);
+          ctx.fillStyle = sign > 0 ? '#e85c56' : '#4c9fe8';
+          ctx.beginPath(); ctx.arc(64, 64, 54, 0, Math.PI * 2); ctx.fill();
+          ctx.fillStyle = '#ffffff'; ctx.font = 'bold 92px Arial';
+          ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+          ctx.fillText(sign > 0 ? '+' : '−', 64, 67);
+          return new T.CanvasTexture(canvas);
+        }
+        var labels = [makeChargeLabel(1), makeChargeLabel(-1)];
+        for (var qi = 0; qi < 2; qi++) {
+          var mesh = new T.Mesh(new T.SphereGeometry(.24, 28, 20),
+            new T.MeshPhongMaterial({
+              color: qi === 0 ? 0xe85c56 : 0x4c9fe8,
+              emissive: qi === 0 ? 0x4a1010 : 0x0b2b4a,
+              shininess: 92
+            }));
+          chargeGroup.add(mesh);
+          chargeMeshes.push(mesh);
+          var sprite = new T.Sprite(new T.SpriteMaterial({ map: labels[qi], transparent: true, depthWrite: false }));
+          sprite.scale.set(.42, .42, 1);
+          mesh.add(sprite);
+          sprite.position.z = .24;
+        }
+
+        var fieldGroup = new T.Group(); S.add(fieldGroup);
+        function disposeFieldLines() {
+          while (fieldGroup.children.length) {
+            var child = fieldGroup.children[0];
+            fieldGroup.remove(child);
+            if (child.geometry) child.geometry.dispose();
+            if (child.material) child.material.dispose();
+          }
+        }
+        var signature = '';
+        function fieldAt(x, y, q1, q2, d) {
+          var k = 8.9875517923e9, x1 = -d / 2, x2 = d / 2;
+          var dx1 = x - x1, r21 = Math.max(.0025, dx1 * dx1 + y * y);
+          var dx2 = x - x2, r22 = Math.max(.0025, dx2 * dx2 + y * y);
+          var r1 = Math.sqrt(r21), r2 = Math.sqrt(r22);
+          var Ex = k * q1 * 1e-9 * dx1 / (r21 * r1) + k * q2 * 1e-9 * dx2 / (r22 * r2);
+          var Ey = k * q1 * 1e-9 * y / (r21 * r1) + k * q2 * 1e-9 * y / (r22 * r2);
+          return { x: Ex, y: Ey, mag: Math.sqrt(Ex * Ex + Ey * Ey) };
+        }
+        function rebuildFieldLines(q1, q2, d) {
+          disposeFieldLines();
+          var sources = [];
+          if (q1 > 0) sources.push({ x: -d / 2, q: q1, sign: 1, color: 0xff8a74 });
+          if (q2 > 0) sources.push({ x: d / 2, q: q2, sign: 1, color: 0xff8a74 });
+          if (!sources.length) {
+            if (q1 < 0) sources.push({ x: -d / 2, q: q1, sign: -1, color: 0x76c5ff });
+            if (q2 < 0) sources.push({ x: d / 2, q: q2, sign: -1, color: 0x76c5ff });
+          }
+          sources.forEach(function (source) {
+            var count = Math.round(8 + Math.abs(source.q) * 3);
+            for (var li = 0; li < count; li++) {
+              var angle = li / count * Math.PI * 2;
+              var x = source.x + .085 * Math.cos(angle);
+              var y = .085 * Math.sin(angle);
+              var points = [];
+              for (var step = 0; step < 210; step++) {
+                points.push(new T.Vector3(x, y, 0));
+                var E = fieldAt(x, y, q1, q2, d);
+                if (E.mag < .0001) break;
+                var dx = E.x / E.mag * source.sign;
+                var dy = E.y / E.mag * source.sign;
+                x += dx * .035;
+                y += dy * .035;
+                if (Math.abs(x) > 4.3 || Math.abs(y) > 3.1) break;
+                var to1 = Math.hypot(x + d / 2, y);
+                var to2 = Math.hypot(x - d / 2, y);
+                if ((q1 < 0 && to1 < .11) || (q2 < 0 && to2 < .11)) {
+                  points.push(new T.Vector3(x, y, 0));
+                  break;
+                }
+              }
+              if (points.length > 2) {
+                var curve = new T.CatmullRomCurve3(points);
+                var line = new T.Mesh(new T.TubeGeometry(curve, points.length, .009, 4, false),
+                  new T.MeshBasicMaterial({ color: source.color, transparent: true, opacity: .56, depthWrite: false }));
+                fieldGroup.add(line);
+              }
+            }
+          });
+        }
+
+        var probe = new T.Mesh(new T.SphereGeometry(.12, 18, 14),
+          new T.MeshPhongMaterial({ color: 0xffdf78, emissive: 0x624b12, shininess: 90 }));
+        S.add(probe);
+        var probeArrow = new T.ArrowHelper(new T.Vector3(1, 0, 0), new T.Vector3(), .8, 0xffd166, .18, .12);
+        S.add(probeArrow);
+        updateModel = function () {
+          var q1 = param(prm, 'charge1', 1), q2 = param(prm, 'charge2', -1);
+          var d = param(prm, 'separation', 1);
+          var sig = [q1, q2, d].join('|');
+          if (sig !== signature) {
+            signature = sig;
+            rebuildFieldLines(q1, q2, d);
+          }
+          chargeMeshes[0].position.set(-d / 2, 0, .05);
+          chargeMeshes[1].position.set(d / 2, 0, .05);
+          var pos = new T.Vector3(param(prm, 'probe_x', 0), param(prm, 'probe_y', 0), .08);
+          probe.position.copy(pos);
+          probeArrow.position.copy(pos);
+          var E = ENGINE.coulombField(q1, q2, d, pos.x, pos.y);
+          var dir = E.magnitude > .00001 ? new T.Vector3(E.fieldX, E.fieldY, 0).normalize() : new T.Vector3(1, 0, 0);
+          probeArrow.setDirection(dir);
+          probeArrow.setLength(.28 + Math.min(1.8, Math.log10(1 + E.magnitude) * .42), .16, .11);
+        };
+        resetModel = function () { updateModel(0); };
+        updateModel(0);
+        st.sph.r = 10.2;
+        st.place();
       } else {
         var meshes = [];
         spec.objects.forEach(function (o) {
@@ -3201,6 +3358,7 @@
           if (spec.engine === 'standingwave') return 'تتكون الموجة الواقفة من تراكب موجتين متعاكستين على وتر مثبت الطرفين. سرعة الموجة v=√(T/μ)، والترددات الطبيعية fn=n v/(2L)، والطول الموجي λn=2L/n. تظهر العقد عند نقاط الإزاحة الصفرية والبطون عند أقصى إزاحة. يغيّر شد الوتر والكثافة الخطية وطوله ترددات الرنين. النموذج يوضح استجابة توافقية مع تخميد مبسط، ولا يحسب خواص الوتر غير الخطية.';
           if (spec.engine === 'collision') return 'يعرض النموذج تصادماً خطياً مباشراً بين جسمين. يُحفظ الزخم في جميع التصادمات، أما الطاقة الحركية فتُحفظ فقط في التصادم المرن عندما e=1. يحدد معامل الارتداد e نسبة سرعة التباعد إلى سرعة الاقتراب. عند e=0 يكون التصادم عديم الارتداد وتتحرك الكرتان بعده بسرعة مشتركة. نهمل الاحتكاك والقوى الخارجية خلال زمن التصادم.';
           if (spec.engine === 'titration') return 'يعرض النموذج معايرة حمض قوي أحادي البروتون بقاعدة قوية أحادية الهيدروكسيد عند 25°C. قبل التكافؤ نحسب فائض +H، وبعده فائض −OH، وعند التكافؤ المثالي تكون pH=7. يتغير لون الدليل مع pH ويُرسم منحنى pH مقابل حجم القاعدة المضافة. لا يمثل هذا النموذج الأحماض الضعيفة أو الاتزانات أو النشاط الكيميائي.';
+          if (spec.engine === 'electrostatic') return 'يعتمد النموذج قانون كولوم ومبدأ التراكب: المجال والجهد عند نقطة يساويان مجموع مساهمات الشحنتين. تتجه خطوط المجال من الشحنة الموجبة إلى السالبة، ويعرض المجس مركبتي المجال والجهد الكهربائي عند موضع تختاره. نستخدم شحنتين نقطيتين في فراغ ونقرب المسافة القريبة جداً لتجنب التفرد العددي.';
           return spec.assumptions || spec.principle || spec.summary;
         },
         dispose: function () { st.dispose(); }
