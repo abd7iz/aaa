@@ -90,7 +90,8 @@ jobs:
             "} else if (spec.engine === 'pendulum') {",
             "} else if (spec.engine === 'blackbody') {",
             "} else if (spec.engine === 'idealgas') {",
-            "} else if (spec.engine === 'rlc') {"
+            "} else if (spec.engine === 'rlc') {",
+            "} else if (spec.engine === 'doppler') {"
           ];
           for (const marker of branchMarkers) assert.ok(engineSource.includes(marker), "Missing simulation branch: " + marker);
           assert.ok(engineSource.includes("function maxwellPdfRatio"), "Ideal gas Maxwell speed curve is missing");
@@ -286,7 +287,26 @@ jobs:
           assert.ok(Math.abs(atResonance.resonanceFrequency - f0) < 1e-9);
           assert.ok(belowResonance.phaseDegrees < 0, 'Below resonance the series circuit should be capacitive');
           assert.ok(aboveResonance.phaseDegrees > 0, 'Above resonance the series circuit should be inductive');
-          console.log('Optics, atomic spectra, blackbody, ideal-gas, RLC resonance and other physics/schema checks passed.');
+          const doppler = api.normalizeSpec({
+            schema: 'mukhtabar-sim-v1',
+            title: 'تأثير دوبلر',
+            field: 'physics',
+            engine: 'doppler',
+            controls: []
+          });
+          assert.equal(doppler.engine, 'doppler');
+          assert.deepEqual(Array.from(doppler.controls, c => c.key), ['frequency', 'source_velocity', 'observer_toward', 'sound_speed']);
+          assert.deepEqual(Array.from(doppler.controls, c => c.value), [440, 30, 0, 343]);
+          const stationary = api.dopplerShift(440, 343, 0, 0);
+          const approaching = api.dopplerShift(440, 343, 30, 0);
+          const receding = api.dopplerShift(440, 343, -30, 0);
+          const observerApproaching = api.dopplerShift(440, 343, 0, 20);
+          assert.ok(Math.abs(stationary.observedFrequency - 440) < 1e-12);
+          assert.ok(approaching.observedFrequency > 440);
+          assert.ok(receding.observedFrequency < 440);
+          assert.ok(observerApproaching.observedFrequency > 440);
+          assert.ok(Math.abs(approaching.observedFrequency - 440 * 343 / 313) < 1e-12);
+          console.log('Optics, atomic spectra, blackbody, ideal-gas, RLC and Doppler physics/schema checks passed.');
           NODE
           node --check ai-worker/worker.js
           node --check ai-config.js
