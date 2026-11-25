@@ -192,8 +192,10 @@
           if (!c) return fallback;
           return clamp((param(prm, key, c.value) - c.min) / Math.max(.0001, c.max - c.min), 0, 1);
         }
+        // The vacuum vessel shares the plasma torus axis (vertical Y).
         var vessel = new T.Mesh(new T.TorusGeometry(R, tube * 1.3, 28, 112),
-          new T.MeshPhongMaterial({ color: 0x64748b, transparent: true, opacity: .2, shininess: 95, side: T.DoubleSide }));
+          new T.MeshPhongMaterial({ color: 0x45647b, transparent: true, opacity: .13, shininess: 95, side: T.DoubleSide, depthWrite: false }));
+        vessel.rotation.x = Math.PI / 2;
         S.add(vessel);
 
         // A deformable, translucent plasma volume replaces the rigid glowing arc.
@@ -234,15 +236,39 @@
         var plasma = new T.Mesh(shellA.geometry, plasmaOuterMat); S.add(plasma);
         var plasmaCore = new T.Mesh(shellB.geometry, plasmaInnerMat); S.add(plasmaCore);
 
-        var core = new T.Mesh(new T.CylinderGeometry(.42, .42, 2.8, 32),
-          new T.MeshPhongMaterial({ color: 0x334155, metalness: .7, shininess: 90 }));
-        core.rotation.x = Math.PI / 2; S.add(core);
-        for (var c = 0; c < 14; c++) {
-          var coilAngle = c / 14 * Math.PI * 2;
-          var coil = new T.Mesh(new T.TorusGeometry(.72, .09, 12, 32),
-            new T.MeshPhongMaterial({ color: 0xd5a85c, metalness: .8, shininess: 100 }));
-          coil.position.set(Math.cos(coilAngle) * R, 0, Math.sin(coilAngle) * R);
-          coil.rotation.y = -coilAngle; coil.rotation.x = Math.PI / 2; S.add(coil);
+        // Central solenoid: a vertical magnetic core with stacked windings.
+        var core = new T.Mesh(new T.CylinderGeometry(.34, .34, 3.15, 32),
+          new T.MeshPhongMaterial({ color: 0x536579, metalness: .72, shininess: 85 }));
+        S.add(core);
+        for (var cw = 0; cw < 7; cw++) {
+          var winding = new T.Mesh(new T.TorusGeometry(.43, .045, 8, 32),
+            new T.MeshPhongMaterial({ color: 0xb97843, metalness: .72, shininess: 90 }));
+          winding.position.y = -1.15 + cw * .38;
+          winding.rotation.x = Math.PI / 2;
+          S.add(winding);
+        }
+
+        // D-shaped toroidal-field coils surround the chamber vertically.
+        // Each coil sits in a radial/vertical plane, rather than appearing as a small ring.
+        var coilMaterial = new T.MeshPhongMaterial({
+          color: 0xa9824d, emissive: 0x1b1005, metalness: .68, shininess: 78
+        });
+        for (var c = 0; c < 12; c++) {
+          var coilAngle = c / 12 * Math.PI * 2;
+          var coilPoints = [];
+          for (var cp = 0; cp < 120; cp++) {
+            var t = cp / 120 * Math.PI * 2;
+            var radial = R + .68 + .95 * Math.cos(t) + .10 * Math.cos(2 * t);
+            var vertical = 2.35 * Math.sin(t);
+            coilPoints.push(new T.Vector3(
+              radial * Math.cos(coilAngle),
+              vertical,
+              radial * Math.sin(coilAngle)
+            ));
+          }
+          var coilCurve = new T.CatmullRomCurve3(coilPoints, true, 'centripetal');
+          var coil = new T.Mesh(new T.TubeGeometry(coilCurve, 144, .045, 7, true), coilMaterial);
+          S.add(coil);
         }
 
         var lineGroup = new T.Group(); S.add(lineGroup);
