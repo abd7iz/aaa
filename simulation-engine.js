@@ -51,7 +51,7 @@
     if (!raw || typeof raw !== 'object' || raw.schema !== 'mukhtabar-sim-v1') {
       throw new Error('صيغة التجربة التي أنشأها الذكاء الاصطناعي غير معروفة.');
     }
-    var engine = ['tokamak', 'wave', 'pendulum', 'interference', 'induction', 'diffraction', 'dipole', 'polarization', 'scene'].indexOf(raw.engine) >= 0 ? raw.engine : null;
+    var engine = ['tokamak', 'wave', 'pendulum', 'interference', 'induction', 'diffraction', 'dipole', 'polarization', 'photoelectric', 'scene'].indexOf(raw.engine) >= 0 ? raw.engine : null;
     if (!engine) throw new Error('نوع المحاكاة غير مدعوم في محرك المختبر الحالي.');
     var field = FIELDS.indexOf(raw.field) >= 0 ? raw.field : 'physics';
     var used = {}, controls = [];
@@ -103,6 +103,10 @@
       ensure(defaultControl('angle', 'زاوية المحلل', 0, 180, 1, 35, '°'));
       ensure(defaultControl('wavelength', 'الطول الموجي', 380, 700, 5, 550, 'nm'));
       ensure(defaultControl('source_intensity', 'شدة المصدر', 10, 100, 1, 100, '%'));
+    } else if (engine === 'photoelectric') {
+      ensure(defaultControl('wavelength', 'الطول الموجي للضوء', 200, 700, 5, 365, 'nm'));
+      ensure(defaultControl('work_function', 'دالة الشغل للمعدن', 1.5, 5.5, .1, 2.3, 'eV'));
+      ensure(defaultControl('intensity', 'شدة الضوء الساقط', 10, 100, 1, 75, '%'));
     }
     if (!controls.length) controls.push(defaultControl('rate', 'معدل الحركة', .1, 3, .05, 1, '×'));
     if (controls.length > 7) controls = controls.slice(0, 7);
@@ -175,6 +179,23 @@
     };
   };
 
+  ENGINE.photoelectric = function (wavelengthNm, workFunctionEv, intensityPercent) {
+    var lambda = clamp(finite(wavelengthNm, 365), 1, 10000);
+    var work = Math.max(.01, finite(workFunctionEv, 2.3));
+    var intensity = clamp(finite(intensityPercent, 75), 0, 100) / 100;
+    var photonEnergy = 1239.841984 / lambda;
+    var kineticEnergy = Math.max(0, photonEnergy - work);
+    return {
+      photonEnergy: photonEnergy,
+      workFunction: work,
+      kineticEnergy: kineticEnergy,
+      stoppingPotential: kineticEnergy,
+      thresholdWavelength: 1239.841984 / work,
+      emission: photonEnergy >= work,
+      relativeEmissionRate: photonEnergy >= work ? intensity : 0
+    };
+  };
+
   function paramsFrom(def, state) {
     var out = {};
     def.params.forEach(function (p) {
@@ -194,7 +215,7 @@
       id: 'generated',
       field: spec.field === 'biology' ? 'bio' : 'phy',
       fieldLabel: ({ physics: 'الفيزياء', biology: 'الأحياء', chemistry: 'الكيمياء', astronomy: 'الفلك', mathematics: 'الرياضيات' })[spec.field],
-      icon: spec.engine === 'tokamak' ? 'atom' : spec.engine === 'wave' ? 'activity' : spec.engine === 'pendulum' ? 'clock' : spec.engine === 'interference' ? 'waves' : spec.engine === 'induction' ? 'zap' : spec.engine === 'diffraction' ? 'scan-eye' : spec.engine === 'dipole' ? 'magnet' : spec.engine === 'polarization' ? 'sun' : 'shapes',
+      icon: spec.engine === 'tokamak' ? 'atom' : spec.engine === 'wave' ? 'activity' : spec.engine === 'pendulum' ? 'clock' : spec.engine === 'interference' ? 'waves' : spec.engine === 'induction' ? 'zap' : spec.engine === 'diffraction' ? 'scan-eye' : spec.engine === 'dipole' ? 'magnet' : spec.engine === 'polarization' ? 'sun' : spec.engine === 'photoelectric' ? 'zap' : 'shapes',
       title: spec.title,
       short: spec.summary,
       spec: spec,
@@ -258,6 +279,19 @@
           rows.push(['نفاذية المحلل', (malus.transmission * 100).toFixed(1) + '%']);
           rows.push(['شدة الضوء بعد المستقطب الأول', (malus.afterFirst * 100).toFixed(1) + '% من المصدر']);
           rows.push(['شدة الضوء الخارج', (malus.output * 100).toFixed(1) + '% من المصدر']);
+        }
+        if (spec.engine === 'photoelectric') {
+          var photo = ENGINE.photoelectric(
+            param(prm, 'wavelength', 365),
+            param(prm, 'work_function', 2.3),
+            param(prm, 'intensity', 75)
+          );
+          rows.push(['طاقة الفوتون', photo.photonEnergy.toFixed(3) + ' eV']);
+          rows.push(['دالة الشغل', photo.workFunction.toFixed(2) + ' eV']);
+          rows.push(['أقصى طاقة حركية', photo.kineticEnergy.toFixed(3) + ' eV']);
+          rows.push(['جهد الإيقاف', photo.stoppingPotential.toFixed(3) + ' V']);
+          rows.push(['طول موجة العتبة', photo.thresholdWavelength.toFixed(1) + ' nm']);
+          rows.push(['الانبعاث', photo.emission ? 'نعم' : 'لا — طاقة الفوتون دون العتبة']);
         }
         return rows;
       };
@@ -903,7 +937,157 @@
         updateModel(0);
         st.sph.r = 12;
         st.place();
-      } else if (spec.engine === 'polarization') {
+      } else if (spec.engine === 'photoelectric') {
+        // Einstein photoelectric effect: photon energy sets electron KE; intensity sets count.
+        var plateMat = new T.MeshPhongMaterial({
+          color: 0x8796a0, metalness: .82, roughness: .34, shininess: 76,
+          specular: 0xddebf2
+        });
+        var plate = new T.Mesh(new T.BoxGeometry(3.35, 2.6, .22), plateMat);
+        plate.position.set(0, 0, -.2);
+        S.add(plate);
+        var plateRimMat = new T.MeshPhongMaterial({ color: 0x5d7788, metalness: .8, shininess: 88 });
+        var plateRim = new T.Mesh(new T.BoxGeometry(3.48, 2.73, .12), plateRimMat);
+        plateRim.position.set(0, 0, -.34);
+        S.add(plateRim);
+
+        // Surface lattice dots make the photocathode visible as a material surface.
+        var atomPos = [];
+        for (var ay = -4; ay <= 4; ay++) {
+          for (var ax = -5; ax <= 5; ax++) {
+            atomPos.push(ax * .27, ay * .27, -.075);
+          }
+        }
+        var atomGeo = new T.BufferGeometry();
+        atomGeo.setAttribute('position', new T.Float32BufferAttribute(atomPos, 3));
+        var atoms = new T.Points(atomGeo, new T.PointsMaterial({
+          color: 0xd7e3ec, size: .045, transparent: true, opacity: .52, depthWrite: false
+        }));
+        S.add(atoms);
+
+        var source = new T.Mesh(new T.SphereGeometry(.17, 20, 16),
+          new T.MeshPhongMaterial({ color: 0xf2fbff, emissive: 0x2b9ecb, emissiveIntensity: 1.35 }));
+        source.position.set(0, 0, 2.8);
+        S.add(source);
+        var sourceLight = new T.PointLight(0x6bdfff, 1.2, 7);
+        sourceLight.position.copy(source.position);
+        S.add(sourceLight);
+
+        var beamMat = new T.MeshBasicMaterial({
+          color: 0x71dfff, transparent: true, opacity: .1,
+          blending: T.AdditiveBlending, depthWrite: false
+        });
+        var beam = new T.Mesh(new T.CylinderGeometry(.28, .28, 2.55, 28),
+          beamMat);
+        beam.rotation.x = Math.PI / 2;
+        beam.position.set(0, 0, 1.22);
+        S.add(beam);
+
+        var electronPathMat = new T.LineBasicMaterial({
+          color: 0x67ddff, transparent: true, opacity: .16
+        });
+        for (var ep = 0; ep < 5; ep++) {
+          var pathX = -1.1 + ep * .55;
+          var pathGeo = new T.BufferGeometry().setFromPoints([
+            new T.Vector3(pathX, 0, -.02),
+            new T.Vector3(pathX * 1.18, .2 * (ep - 2), 2.05)
+          ]);
+          S.add(new T.Line(pathGeo, electronPathMat));
+        }
+
+        // Deterministic photon/electron launch locations for repeatable scenes.
+        var random = seeded(4051);
+        var particleCount = 32;
+        var launchX = new Float32Array(particleCount);
+        var launchY = new Float32Array(particleCount);
+        var driftX = new Float32Array(particleCount);
+        var driftY = new Float32Array(particleCount);
+        for (var pi = 0; pi < particleCount; pi++) {
+          launchX[pi] = random() * 1.38;
+          launchY[pi] = random() * 1.02;
+          driftX[pi] = random() * .42;
+          driftY[pi] = random() * .42;
+        }
+        var photonPos = new Float32Array(particleCount * 3);
+        var photonGeo = new T.BufferGeometry();
+        photonGeo.setAttribute('position', new T.BufferAttribute(photonPos, 3));
+        var photonMat = new T.PointsMaterial({
+          color: 0x77e8ff, size: .13, transparent: true, opacity: .95,
+          blending: T.AdditiveBlending, depthWrite: false
+        });
+        S.add(new T.Points(photonGeo, photonMat));
+
+        var electronPos = new Float32Array(particleCount * 3);
+        var electronGeo = new T.BufferGeometry();
+        electronGeo.setAttribute('position', new T.BufferAttribute(electronPos, 3));
+        var electronMat = new T.PointsMaterial({
+          color: 0xffd166, size: .12, transparent: true, opacity: .96,
+          blending: T.AdditiveBlending, depthWrite: false
+        });
+        S.add(new T.Points(electronGeo, electronMat));
+
+        var impactGlow = new T.PointLight(0x59dfff, .8, 5);
+        impactGlow.position.set(0, 0, -.05);
+        S.add(impactGlow);
+        var statusRing = new T.Mesh(new T.TorusGeometry(.46, .025, 8, 48),
+          new T.MeshBasicMaterial({ color: 0x56dfff, transparent: true, opacity: .5 }));
+        statusRing.position.set(0, 0, -.02);
+        S.add(statusRing);
+
+        function wavelengthColor(nm) {
+          var r = 0, g = 0, b = 0;
+          if (nm < 440) { r = (440 - nm) / 60; b = 1; }
+          else if (nm < 490) { g = (nm - 440) / 50; b = 1; }
+          else if (nm < 510) { g = 1; b = (510 - nm) / 20; }
+          else if (nm < 580) { r = (nm - 510) / 70; g = 1; }
+          else if (nm < 645) { r = 1; g = (645 - nm) / 65; }
+          else { r = 1; }
+          return new T.Color(r, g, b);
+        }
+
+        updateModel = function () {
+          var lambda = param(prm, 'wavelength', 365);
+          var work = param(prm, 'work_function', 2.3);
+          var intensity = param(prm, 'intensity', 75) / 100;
+          var result = ENGINE.photoelectric(lambda, work, intensity * 100);
+          var color = wavelengthColor(lambda);
+          photonMat.color.copy(color);
+          beamMat.color.copy(color);
+          sourceLight.color.copy(color);
+          sourceLight.intensity = .45 + intensity * 1.1;
+          beamMat.opacity = .025 + intensity * .18;
+
+          var photonVisible = Math.floor(particleCount * (.12 + intensity * .88));
+          for (var p = 0; p < photonVisible; p++) {
+            var photonPhase = (time * .9 + p / particleCount) % 1;
+            photonPos[p * 3] = launchX[p];
+            photonPos[p * 3 + 1] = launchY[p];
+            photonPos[p * 3 + 2] = 2.55 - photonPhase * 2.72;
+          }
+          photonGeo.attributes.position.needsUpdate = true;
+          photonGeo.setDrawRange(0, photonVisible);
+
+          var electronsVisible = result.emission ? photonVisible : 0;
+          var speedScale = Math.sqrt(Math.max(0, result.kineticEnergy) / 2.5);
+          for (var el = 0; el < electronsVisible; el++) {
+            var age = (time * (.46 + speedScale * .42) + el / particleCount) % 1;
+            electronPos[el * 3] = launchX[el] + driftX[el] * speedScale * age;
+            electronPos[el * 3 + 1] = launchY[el] + driftY[el] * speedScale * age;
+            electronPos[el * 3 + 2] = -.04 + age * (1.05 + speedScale * 1.4);
+          }
+          electronGeo.attributes.position.needsUpdate = true;
+          electronGeo.setDrawRange(0, electronsVisible);
+
+          electronMat.color.set(result.emission ? 0xffd166 : 0x64748b);
+          impactGlow.intensity = result.emission ? .5 + intensity * 1.6 : .05;
+          statusRing.material.color.set(result.emission ? 0x58e8ff : 0xff6b6b);
+          statusRing.material.opacity = result.emission ? .3 + intensity * .4 : .75;
+        };
+        resetModel = function () { time = 0; updateModel(0); };
+        updateModel(0);
+        st.sph.r = 11;
+        st.place();
+
         // Malus' law with an unpolarized source, first polarizer, and rotating analyzer.
         var radius = 1.12;
         var sourceColor = new T.Color(0xe8fbff);
@@ -1538,6 +1722,7 @@
           if (spec.engine === 'diffraction') return 'محزوز الحيود يتكون من عدد كبير من الشقوق المتوازية. تتحدد الاتجاهات الرئيسية المضيئة بشرط d sin(θ) = mλ، بينما يحدد عرض الشق غلاف الحيود. يحسب النموذج نمط فراونهوفر لشقوق متساوية مثالية: I ∝ sinc²(α) [sin(Nβ)/(N sin(β))]². غيّر الطول الموجي وتباعد الشقوق وعددها وعرضها وبعد الشاشة. نهمل خشونة المحزوز والانعكاسات والفقد.';
           if (spec.engine === 'dipole') return 'يمثل المغناطيس ثنائي القطب بعزم m موجّه على محور +Y. تُحسب خطوط المجال من علاقة خطوط ثنائي القطب r = L sin²(θ)، ويُحسب المجال عند المجس من B = μ₀m/(4πr³) √(1 + 3cos²θ). غيّر العزم وموقع المجس وعدد خطوط العرض. يفترض النموذج مغناطيساً مثالياً بعيد المجال، ولا يمثل تفاصيل المجال داخل مادة المغناطيس.';
           if (spec.engine === 'polarization') return 'يخرج الضوء غير المستقطب من المرشح الأول مستقطباً خطياً، ثم يمر عبر محلل دوار. تحكم قانون مالوس الشدة بعد المحلل: I = I₁ cos²(θ)، حيث θ زاوية المحورين. عند 0° أو 180° يكون النفاذ أعظمياً، وعند 90° ينعدم الضوء المثالي. النموذج يعرض مرشحين مثاليين ولا يحسب الامتصاص أو الانعكاسات أو الاستقطاب الجزئي.';
+          if (spec.engine === 'photoelectric') return 'حسب معادلة أينشتاين للتأثير الكهروضوئي: Eγ = hc/λ، وKmax = max(0, Eγ − φ). إذا كانت طاقة الفوتون أقل من دالة الشغل φ فلا يحدث انبعاث مهما زادت شدة الضوء. عند تجاوز العتبة، تغيّر الشدة عدد الإلكترونات المنبعثة بينما يحدد التردد طاقتها الحركية القصوى. جهد الإيقاف العددي يساوي Kmax بوحدة الفولت عندما تقاس الطاقة بالإلكترون فولت. النموذج مثالي ولا يحسب توزيع طاقات الإلكترونات أو تفاصيل سطح المعدن.';
           return spec.assumptions || spec.principle || spec.summary;
         },
         dispose: function () { st.dispose(); }
