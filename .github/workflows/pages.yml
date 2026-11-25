@@ -69,6 +69,27 @@ jobs:
           PY
           for file in inline-check-*.mjs; do node --check "$file"; done
           node --check simulation-engine.js
+          node - <<'NODE'
+          const assert = require('node:assert/strict');
+          const fs = require('node:fs');
+          const vm = require('node:vm');
+          const sandbox = { window: {} };
+          vm.createContext(sandbox);
+          vm.runInContext(fs.readFileSync('simulation-engine.js', 'utf8'), sandbox);
+          const api = sandbox.window.MUKHTABAR_ENGINE;
+          assert.ok(api, 'simulation engine must export its API');
+          const spec = api.normalizeSpec({
+            schema: 'mukhtabar-sim-v1',
+            title: 'تجربة شقي يونغ',
+            field: 'physics',
+            engine: 'interference',
+            controls: []
+          });
+          assert.equal(spec.engine, 'interference');
+          assert.deepEqual(Array.from(spec.controls, c => c.key), ['wavelength', 'separation', 'distance']);
+          assert.deepEqual(Array.from(spec.controls, c => c.value), [550, 0.25, 1.5]);
+          console.log('Interference engine schema smoke test passed.');
+          NODE
           node --check ai-worker/worker.js
           node --check ai-config.js
           node -e "JSON.parse(require('node:fs').readFileSync('wrangler.jsonc', 'utf8'))"
