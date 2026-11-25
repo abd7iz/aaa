@@ -1,7 +1,7 @@
 # MUKHTABAR — Project Status
 
 Last updated: 2026-11-25
-Current UI asset version: v39
+Current UI asset version: v40
 
 ## Repository
 - Code: https://github.com/abd7iz/aaa
@@ -23,7 +23,8 @@ Current UI asset version: v39
 10. Radioactive decay — stochastic nucleus lifetimes, visible remaining nuclei, radiation-event tracers and comparison with exponential expectation.
 11. Bohr atomic spectrum — hydrogen-like ion energy levels, electron transitions, emitted/absorbed photon and calculated wavelength.
 12. Blackbody radiation — Planck spectrum curve, Wien peak marker and Stefan–Boltzmann total power.
-13. Sinusoidal wave, pendulum and generated 3D scene engines.
+13. Ideal gas piston — PV=nRT pressure readout, volume-controlled moving piston and temperature-scaled particles.
+14. Sinusoidal wave, pendulum and generated 3D scene engines.
 
 ## Physics models
 - Double slit: `I ∝ cos²(π d x / λL)`; defaults 550 nm, 0.25 mm separation and 1.5 m distance; expected fringe spacing 3.30 mm.
@@ -75,6 +76,14 @@ Current UI asset version: v39
 - Stefan–Boltzmann power: P=σAT⁴.
 - Displays relative Planck spectrum from 100 to 2400 nm and a hot emitter whose color follows temperature approximately.
 - Assumes an ideal emitter with emissivity 1.
+
+## Ideal gas
+- Engine ID: idealgas
+- Defaults: T=300 K, n=0.1 mol, V=2.5 L.
+- Pressure: P=nRT/V; default approximately 99.8 kPa.
+- Nitrogen RMS speed estimate: vrms=√(3RT/M), M=0.028 kg/mol.
+- Volume moves the piston, temperature scales particle speed and amount scales visible particle count.
+- Assumptions: ideal gas, simple wall reflections; intermolecular collisions and the full Maxwell–Boltzmann distribution are not simulated.
 
 ## Validation
 - CI parses all inline app scripts, simulation-engine.js, Worker and config.
