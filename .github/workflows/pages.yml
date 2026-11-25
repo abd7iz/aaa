@@ -158,7 +158,24 @@ jobs:
           assert.ok(photoDim.relativeEmissionRate < photoAbove.relativeEmissionRate);
           assert.equal(photoBelow.emission, false);
           assert.equal(photoBelow.kineticEnergy, 0);
-          console.log('Interference, induction, diffraction, dipole, polarization and photoelectric schema/physics checks passed.');
+          const decay = api.normalizeSpec({
+            schema: 'mukhtabar-sim-v1',
+            title: 'الاضمحلال الإشعاعي',
+            field: 'physics',
+            engine: 'decay',
+            controls: []
+          });
+          assert.equal(decay.engine, 'decay');
+          assert.deepEqual(Array.from(decay.controls, c => c.key), ['half_life', 'initial_atoms', 'rate']);
+          assert.deepEqual(Array.from(decay.controls, c => c.value), [6, 200, 1]);
+          const decayStart = api.decayLaw(200, 6, 0);
+          const decayHalf = api.decayLaw(200, 6, 6);
+          const medianLifetime = api.sampleDecayTime(.5, 6);
+          assert.ok(Math.abs(decayStart.expectedRemaining - 200) < 1e-12);
+          assert.ok(Math.abs(decayHalf.expectedRemaining - 100) < 1e-12);
+          assert.ok(Math.abs(decayHalf.decayConstant - Math.LN2 / 6) < 1e-12);
+          assert.ok(Math.abs(medianLifetime - 6) < 1e-12);
+          console.log('Optics, dipole, photoelectric and radioactive-decay physics/schema checks passed.');
           NODE
           node --check ai-worker/worker.js
           node --check ai-config.js
