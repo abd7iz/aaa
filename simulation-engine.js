@@ -2238,6 +2238,48 @@
         pressureGlow.position.set(0, 1.4, 0);
         S.add(pressureGlow);
 
+        // Maxwell-Boltzmann speed distribution: sampled histogram versus theoretical curve.
+        var chartLeft = 2.02, chartBottom = -.82, chartWidth = 2.05, chartHeight = 1.42, chartZ = .18;
+        var chartBins = 12, chartRange = 2.6, chartCounts = new Uint16Array(chartBins);
+        var chartBaseMat = new T.LineBasicMaterial({ color: 0x647f91, transparent: true, opacity: .62 });
+        var chartAxisGeo = new T.BufferGeometry().setFromPoints([
+          new T.Vector3(chartLeft, chartBottom, chartZ),
+          new T.Vector3(chartLeft + chartWidth, chartBottom, chartZ),
+          new T.Vector3(chartLeft, chartBottom, chartZ),
+          new T.Vector3(chartLeft, chartBottom + chartHeight, chartZ)
+        ]);
+        S.add(new T.LineSegments(chartAxisGeo, chartBaseMat));
+        var theoreticalPositions = new Float32Array(81 * 3);
+        var theoreticalGeometry = new T.BufferGeometry();
+        theoreticalGeometry.setAttribute('position', new T.BufferAttribute(theoreticalPositions, 3));
+        var theoreticalMaterial = new T.LineBasicMaterial({ color: 0xffca70, transparent: true, opacity: .92 });
+        var theoreticalCurve = new T.Line(theoreticalGeometry, theoreticalMaterial);
+        S.add(theoreticalCurve);
+        var histogramBars = [];
+        var histogramMaterial = new T.MeshPhongMaterial({
+          color: 0x4ac9eb, emissive: 0x0a4057, emissiveIntensity: .4,
+          transparent: true, opacity: .76
+        });
+        var histogramBarGeometry = new T.BoxGeometry(1, 1, .055);
+        for (var hb = 0; hb < chartBins; hb++) {
+          var bar = new T.Mesh(histogramBarGeometry, histogramMaterial);
+          S.add(bar);
+          histogramBars.push(bar);
+        }
+        function maxwellPdfRatio(x) {
+          var peakX = Math.sqrt(2 / 3);
+          var pdf = Math.sqrt(2 / Math.PI) * Math.pow(3, 1.5) * x * x * Math.exp(-1.5 * x * x);
+          var peak = Math.sqrt(2 / Math.PI) * Math.pow(3, 1.5) * peakX * peakX * Math.exp(-1.5 * peakX * peakX);
+          return peak > 0 ? pdf / peak : 0;
+        }
+        for (var mi = 0; mi <= 80; mi++) {
+          var mx = chartRange * mi / 80;
+          theoreticalPositions[mi * 3] = chartLeft + chartWidth * mx / chartRange;
+          theoreticalPositions[mi * 3 + 1] = chartBottom + chartHeight * maxwellPdfRatio(mx);
+          theoreticalPositions[mi * 3 + 2] = chartZ + .035;
+        }
+        theoreticalGeometry.attributes.position.needsUpdate = true;
+
         var gasCountBuilt = 0, gasHeight = 2.0;
         function normalGasComponent() {
           var u1 = clamp((velocitySeeds() + 1) * .5, .000001, .999999);
@@ -2313,6 +2355,23 @@
             particleVelocity[idx + 2] = vz;
           }
           gasGeometry.attributes.position.needsUpdate = true;
+
+          chartCounts.fill(0);
+          for (var hs = 0; hs < gasCountBuilt; hs++) {
+            var hvx = particleVelocity[hs * 3], hvy = particleVelocity[hs * 3 + 1], hvz = particleVelocity[hs * 3 + 2];
+            var normalizedSpeed = Math.sqrt(hvx * hvx + hvy * hvy + hvz * hvz);
+            var bin = clamp(Math.floor(normalizedSpeed / chartRange * chartBins), 0, chartBins - 1);
+            chartCounts[bin]++;
+          }
+          var maxCount = 1;
+          for (var hc = 0; hc < chartBins; hc++) maxCount = Math.max(maxCount, chartCounts[hc]);
+          for (var hb = 0; hb < chartBins; hb++) {
+            var barHeight = chartHeight * chartCounts[hb] / maxCount;
+            var centerX = chartLeft + chartWidth * (hb + .5) / chartBins;
+            var bar = histogramBars[hb];
+            bar.position.set(centerX, chartBottom + barHeight / 2, chartZ + .012);
+            bar.scale.set(chartWidth / chartBins * .64, Math.max(.012, barHeight), 1);
+          }
           var gasState = ENGINE.idealGasState(temp, amount, volume);
           pressureGlow.intensity = .35 + clamp(gasState.pressureAtm / 3, 0, 1.5);
         };
@@ -2557,7 +2616,7 @@
           if (spec.engine === 'decay') return 'يصف الاضمحلال الإشعاعي قانوناً إحصائياً: N(t)=N₀e^(−λt)، حيث λ=ln(2)/T½. كل نواة لها زمن اضمحلال عشوائي موزع أُسياً؛ لذلك قد يختلف العدد المشاهد عن المنحنى المتوقع، خصوصاً في العينات الصغيرة. زد عدد النوى لملاحظة تقارب النتيجة من المنحنى الإحصائي. هذا نموذج تعليمي لا يحدد مادة مشعة بعينها أو نشاطاً عملياً.';
           if (spec.engine === 'bohr') return 'في نموذج بور للأيونات الشبيهة بالهيدروجين تكون طاقة المستوى En = −13.6 Z²/n² eV. عند الانتقال بين مستويين تتغير طاقة الذرة بمقدار ΔE = 13.6 Z²|1/nf² − 1/ni²|، وتُحمل هذه الطاقة بفوتون طوله الموجي λ = hc/ΔE. هذا نموذج مبسط، ولا يصف الذرات متعددة الإلكترونات أو البنية الدقيقة للخطوط الطيفية.';
           if (spec.engine === 'blackbody') return 'يصف قانون بلانك التوزيع الطيفي لإشعاع الجسم الأسود حسب الطول الموجي ودرجة الحرارة. تنتقل قمة الطيف مع الحرارة وفق قانون فين λmax = 2.8978×10⁶/T nm، بينما تتناسب القدرة الكلية المشعة لكل وحدة مساحة مع T⁴ وفق قانون ستيفان–بولتزمان. الرسم يعرض طيفاً نسبياً ضمن نطاق 100–2400 nm؛ والقدرة الكلية المعروضة محسوبة لمساحة السطح المختارة. النموذج يفترض باعثاً مثالياً بمعامل انبعاث يساوي واحداً.';
-          if (spec.engine === 'idealgas') return 'يطبق النموذج قانون الغاز المثالي PV=nRT. مكونات سرعة الجزيئات تُسحب عشوائياً من توزيعات غاوسية مستقلة، فتنتج تقريباً توزيع ماكسويل–بولتزمان للسرعات؛ تزداد السرعات المميزة مع الجذر التربيعي لدرجة الحرارة. تُعرض السرعة الأكثر احتمالاً والمتوسطة وRMS. كمية الغاز تحدد عدد الجسيمات المعروضة، والحجم يحرك المكبس. نهمل التصادمات البينية التفصيلية وتغير التوزيع بسببها.';
+          if (spec.engine === 'idealgas') return 'يطبق النموذج قانون الغاز المثالي PV=nRT. مكونات سرعة الجزيئات تُسحب عشوائياً من توزيعات غاوسية مستقلة، فتنتج تقريباً توزيع ماكسويل–بولتزمان للسرعات. الرسم يقارن مدرج السرعات المشاهد بالمنحنى النظري. تزداد السرعات المميزة مع الجذر التربيعي لدرجة الحرارة. تُعرض السرعة الأكثر احتمالاً والمتوسطة وRMS. كمية الغاز تحدد عدد الجسيمات المعروضة، والحجم يحرك المكبس. نهمل التصادمات البينية التفصيلية وتغير التوزيع بسببها.';
           if (spec.engine === 'rlc') return 'تتصل المقاومة والملف والمكثف على التوالي بمصدر متناوب. المفاعلة الحثية XL=ωL والمفاعلة السعوية XC=1/(ωC)، والممانعة Z=√(R²+(XL−XC)²). يبلغ التيار أعظمه قرب تردد الرنين f0=1/(2π√LC). يعرض المنظار موجتي الجهد والتيار وفرق الطور بينهما. نهمل مقاومة الملف الداخلية والطفيليات وتأثير الحمل غير المثالي.';
           return spec.assumptions || spec.principle || spec.summary;
         },
