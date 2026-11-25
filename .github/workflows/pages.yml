@@ -97,7 +97,7 @@ jobs:
             "} else if (spec.engine === 'titration') {",
             "} else if (spec.engine === 'electrostatic') {",
             "} else if (spec.engine === 'venturi') {",
-            "} else if (spec.engine === 'buoyancy') {"
+            "} else if (spec.engine === 'buoyancy') {",
             "} else if (spec.engine === 'rc') {"
           ];
           for (const marker of branchMarkers) assert.ok(engineSource.includes(marker), "Missing simulation branch: " + marker);
