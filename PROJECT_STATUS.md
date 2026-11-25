@@ -1,7 +1,7 @@
 # MUKHTABAR — Project Status
 
 Last updated: 2026-11-25
-Current UI asset version: v36
+Current UI asset version: v37
 
 ## Repository
 - Code: https://github.com/abd7iz/aaa
@@ -83,3 +83,9 @@ Current UI asset version: v36
 - User is phone-first; keep geometry and particle counts low.
 - Do not claim autonomous background execution or automatic new-chat handoff.
 - Update this file after each stable release so a new conversation can resume from the latest project state.
+
+
+## Latest engine integrity fix
+- Corrected missing independent scene-branch headers for decay, photoelectric, polarization, dipole, diffraction and wave.
+- Each dedicated experiment now runs in its own if/else-if branch rather than continuing into later experiment setup blocks.
+- CI now checks that all dedicated scene branches remain present.
