@@ -51,7 +51,7 @@
     if (!raw || typeof raw !== 'object' || raw.schema !== 'mukhtabar-sim-v1') {
       throw new Error('صيغة التجربة التي أنشأها الذكاء الاصطناعي غير معروفة.');
     }
-    var engine = ['tokamak', 'wave', 'pendulum', 'interference', 'induction', 'diffraction', 'scene'].indexOf(raw.engine) >= 0 ? raw.engine : null;
+    var engine = ['tokamak', 'wave', 'pendulum', 'interference', 'induction', 'diffraction', 'dipole', 'scene'].indexOf(raw.engine) >= 0 ? raw.engine : null;
     if (!engine) throw new Error('نوع المحاكاة غير مدعوم في محرك المختبر الحالي.');
     var field = FIELDS.indexOf(raw.field) >= 0 ? raw.field : 'physics';
     var used = {}, controls = [];
@@ -94,6 +94,11 @@
       ensure(defaultControl('slit_count', 'عدد الشقوق', 2, 8, 1, 5, 'شق'));
       ensure(defaultControl('slit_width', 'عرض الشق', .1, .8, .05, .35, 'μm'));
       ensure(defaultControl('distance', 'بعد الشاشة', .5, 2.5, .05, 1.5, 'm'));
+    } else if (engine === 'dipole') {
+      ensure(defaultControl('moment', 'العزم المغناطيسي', .5, 5, .1, 2, 'A·m²'));
+      ensure(defaultControl('probe_radius', 'بعد المجس عن المركز', .6, 2.5, .05, 1.3, 'm'));
+      ensure(defaultControl('probe_angle', 'زاوية المجس', 0, 90, 1, 45, '°'));
+      ensure(defaultControl('line_count', 'عدد خطوط المجال', 8, 24, 1, 16, 'خط'));
     }
     if (!controls.length) controls.push(defaultControl('rate', 'معدل الحركة', .1, 3, .05, 1, '×'));
     if (controls.length > 7) controls = controls.slice(0, 7);
@@ -162,7 +167,7 @@
       id: 'generated',
       field: spec.field === 'biology' ? 'bio' : 'phy',
       fieldLabel: ({ physics: 'الفيزياء', biology: 'الأحياء', chemistry: 'الكيمياء', astronomy: 'الفلك', mathematics: 'الرياضيات' })[spec.field],
-      icon: spec.engine === 'tokamak' ? 'atom' : spec.engine === 'wave' ? 'activity' : spec.engine === 'pendulum' ? 'clock' : spec.engine === 'interference' ? 'waves' : spec.engine === 'induction' ? 'zap' : spec.engine === 'diffraction' ? 'scan-eye' : 'shapes',
+      icon: spec.engine === 'tokamak' ? 'atom' : spec.engine === 'wave' ? 'activity' : spec.engine === 'pendulum' ? 'clock' : spec.engine === 'interference' ? 'waves' : spec.engine === 'induction' ? 'zap' : spec.engine === 'diffraction' ? 'scan-eye' : spec.engine === 'dipole' ? 'magnet' : 'shapes',
       title: spec.title,
       short: spec.summary,
       spec: spec,
@@ -206,6 +211,18 @@
           var firstOrder = ratio <= 1 ? (Math.asin(ratio) * 180 / Math.PI).toFixed(2) + '°' : 'غير متاح';
           rows.push(['زاوية الرتبة المضيئة الأولى', firstOrder]);
           rows.push(['أقصى رتبة ممكنة', String(Math.floor(1 / Math.max(1e-9, ratio)))]);
+        }
+        if (spec.engine === 'dipole') {
+          var m = param(prm, 'moment', 2);
+          var r = Math.max(.01, param(prm, 'probe_radius', 1.3));
+          var th = param(prm, 'probe_angle', 45) * Math.PI / 180;
+          var c = 1e-7 * m / (r * r * r);
+          var bx = 3 * c * Math.sin(th) * Math.cos(th);
+          var by = c * (3 * Math.cos(th) * Math.cos(th) - 1);
+          var magnitude = c * Math.sqrt(1 + 3 * Math.cos(th) * Math.cos(th)) * 1e6;
+          rows.push(['شدة المجال عند المجس', magnitude.toFixed(3) + ' μT']);
+          rows.push(['المركبة الأفقية Bx', (bx * 1e6).toFixed(3) + ' μT']);
+          rows.push(['المركبة الرأسية By', (by * 1e6).toFixed(3) + ' μT']);
         }
         return rows;
       };
@@ -851,7 +868,152 @@
         updateModel(0);
         st.sph.r = 12;
         st.place();
-      } else if (spec.engine === 'diffraction') {
+      } else if (spec.engine === 'dipole') {
+        // Ideal magnetic dipole field; the magnet moment points along +Y.
+        var magnetGroup = new T.Group();
+        S.add(magnetGroup);
+        var northMat = new T.MeshPhongMaterial({ color: 0xb94747, emissive: 0x280707, metalness: .42, shininess: 72 });
+        var southMat = new T.MeshPhongMaterial({ color: 0x3469b4, emissive: 0x07182b, metalness: .42, shininess: 72 });
+        var northPole = new T.Mesh(new T.CylinderGeometry(.34, .34, .68, 36), northMat);
+        var southPole = new T.Mesh(new T.CylinderGeometry(.34, .34, .68, 36), southMat);
+        northPole.position.y = .36;
+        southPole.position.y = -.36;
+        magnetGroup.add(northPole);
+        magnetGroup.add(southPole);
+        var poleRimMat = new T.MeshPhongMaterial({ color: 0xaebdc8, metalness: .8, shininess: 95 });
+        [-.72, 0, .72].forEach(function (y) {
+          var rim = new T.Mesh(new T.TorusGeometry(.34, .025, 8, 40), poleRimMat);
+          rim.position.y = y;
+          rim.rotation.x = Math.PI / 2;
+          magnetGroup.add(rim);
+        });
+
+        function poleSprite(letter, fill, y) {
+          var canvas = document.createElement('canvas');
+          canvas.width = 128; canvas.height = 128;
+          var ctx = canvas.getContext('2d');
+          ctx.clearRect(0, 0, 128, 128);
+          ctx.fillStyle = fill;
+          ctx.beginPath(); ctx.arc(64, 64, 49, 0, Math.PI * 2); ctx.fill();
+          ctx.fillStyle = '#ffffff';
+          ctx.font = 'bold 72px Arial'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+          ctx.fillText(letter, 64, 66);
+          var texture = new T.CanvasTexture(canvas);
+          var sprite = new T.Sprite(new T.SpriteMaterial({ map: texture, transparent: true, depthWrite: false }));
+          sprite.scale.set(.5, .5, 1);
+          sprite.position.set(.48, y, 0);
+          S.add(sprite);
+        }
+        poleSprite('N', '#bd4141', .36);
+        poleSprite('S', '#326ac2', -.36);
+
+        var fieldGroup = new T.Group();
+        S.add(fieldGroup);
+        var fieldMaterials = [
+          new T.MeshBasicMaterial({ color: 0x4edcff, transparent: true, opacity: .58, blending: T.AdditiveBlending, depthWrite: false }),
+          new T.MeshBasicMaterial({ color: 0x9b8cff, transparent: true, opacity: .46, blending: T.AdditiveBlending, depthWrite: false })
+        ];
+        var lineDefinitions = [];
+        var builtLineCount = 0;
+        function rebuildDipoleLines() {
+          while (fieldGroup.children.length) {
+            var old = fieldGroup.children[0];
+            fieldGroup.remove(old);
+            if (old.geometry) old.geometry.dispose();
+          }
+          lineDefinitions = [];
+          var count = Math.round(param(prm, 'line_count', 16));
+          for (var n = 0; n < count; n++) {
+            var level = Math.floor(n / 8);
+            var slot = n % 8;
+            var L = 1.45 + level * .72;
+            var phi = slot / 8 * Math.PI * 2 + level * .19;
+            var pts = [];
+            for (var step = 0; step <= 100; step++) {
+              var theta = .38 + (Math.PI - .76) * step / 100;
+              var radius = L * Math.sin(theta) * Math.sin(theta);
+              pts.push(new T.Vector3(
+                radius * Math.sin(theta) * Math.cos(phi),
+                radius * Math.cos(theta),
+                radius * Math.sin(theta) * Math.sin(phi)
+              ));
+            }
+            var curve = new T.CatmullRomCurve3(pts, false, 'centripetal');
+            var tubeGeo = new T.TubeGeometry(curve, 100, .013, 5, false);
+            var line = new T.Mesh(tubeGeo, fieldMaterials[n % 2]);
+            fieldGroup.add(line);
+            lineDefinitions.push({ L: L, phi: phi });
+          }
+          builtLineCount = count;
+        }
+        rebuildDipoleLines();
+
+        // Animated tracers illustrate the direction of B from north to south.
+        var tracerCount = 24, tracerPos = new Float32Array(tracerCount * 3);
+        var tracerGeo = new T.BufferGeometry();
+        tracerGeo.setAttribute('position', new T.BufferAttribute(tracerPos, 3));
+        var tracerMat = new T.PointsMaterial({
+          color: 0xe4faff, size: .105, transparent: true, opacity: .95,
+          blending: T.AdditiveBlending, depthWrite: false
+        });
+        S.add(new T.Points(tracerGeo, tracerMat));
+
+        // Probe location and local magnetic-field vector.
+        var probe = new T.Group();
+        S.add(probe);
+        var probeBall = new T.Mesh(new T.SphereGeometry(.09, 20, 16),
+          new T.MeshPhongMaterial({ color: 0xffd166, emissive: 0x6d4310, emissiveIntensity: .5 }));
+        probe.add(probeBall);
+        var fieldArrow = new T.ArrowHelper(new T.Vector3(1, 0, 0), new T.Vector3(), .8, 0xffd166, .17, .11);
+        S.add(fieldArrow);
+
+        function dipoleAt(r, theta, moment) {
+          var c = 1e-7 * moment / (r * r * r);
+          var stheta = Math.sin(theta), ctheta = Math.cos(theta);
+          var bx = 3 * c * stheta * ctheta;
+          var by = c * (3 * ctheta * ctheta - 1);
+          var magnitude = c * Math.sqrt(1 + 3 * ctheta * ctheta);
+          return { bx: bx, by: by, magnitude: magnitude };
+        }
+        var tracerVec = new T.Vector3();
+        updateModel = function () {
+          var wantedCount = Math.round(param(prm, 'line_count', 16));
+          if (wantedCount !== builtLineCount) rebuildDipoleLines();
+          var count = lineDefinitions.length;
+          for (var pi = 0; pi < tracerCount; pi++) {
+            var line = lineDefinitions[pi % count];
+            var u = (time * .10 + pi / tracerCount) % 1;
+            var theta = .38 + (Math.PI - .76) * u;
+            var radius = line.L * Math.sin(theta) * Math.sin(theta);
+            tracerVec.set(
+              radius * Math.sin(theta) * Math.cos(line.phi),
+              radius * Math.cos(theta),
+              radius * Math.sin(theta) * Math.sin(line.phi)
+            );
+            tracerPos[pi * 3] = tracerVec.x;
+            tracerPos[pi * 3 + 1] = tracerVec.y;
+            tracerPos[pi * 3 + 2] = tracerVec.z;
+          }
+          tracerGeo.attributes.position.needsUpdate = true;
+
+          var r = param(prm, 'probe_radius', 1.3);
+          var theta = param(prm, 'probe_angle', 45) * Math.PI / 180;
+          var moment = param(prm, 'moment', 2);
+          var x = r * Math.sin(theta), y = r * Math.cos(theta);
+          probe.position.set(x, y, 0);
+          var B = dipoleAt(r, theta, moment);
+          var direction = new T.Vector3(B.bx, B.by, 0).normalize();
+          fieldArrow.position.set(x, y, 0);
+          fieldArrow.setDirection(direction);
+          var arrowLength = clamp(.45 + Math.log10(1 + B.magnitude * 1e7) * .22, .45, 1.25);
+          fieldArrow.setLength(arrowLength, .18, .12);
+          probeBall.scale.setScalar(1 + Math.min(.8, B.magnitude * 1e7));
+        };
+        resetModel = function () { time = 0; updateModel(0); };
+        updateModel(0);
+        st.sph.r = 10.2;
+        st.place();
+
         // Fraunhofer diffraction from a finite-width N-slit grating.
         var screenW = 5.35, screenH = 3.35, screenZ = -4.25, gratingZ = .72;
         var screenGeo = new T.PlaneGeometry(screenW, screenH, 300, 8);
@@ -1182,6 +1344,7 @@
           if (spec.engine === 'induction') return 'يعرض النموذج قانون فاراداي للحث الكهرومغناطيسي: ε = −N dΦ/dt. عند دوران الملف في مجال منتظم يتغير الفيض Φ = BA cos(ωt)، فينشأ جهد متناوب سعته القصوى εmax = NBAω. المقاومة تحدد التيار اللحظي I = ε/R. النموذج مثالي ولا يحسب الفقد أو المجال غير المنتظم أو تأثير الحمل على سرعة الدوران.';
           if (spec.engine === 'interference') return 'تجربة شقي يونغ: تتراكب موجتان ضوئيتان مترابطتان فتظهر أهداب مضيئة ومعتمة على الشاشة. يحسب النموذج شدة الأهداب بالعلاقة I ∝ cos²(π d x / λ L)، ويعرض المسافة بين الأهداب Δy = λL/d. النموذج يفترض ضوءاً أحادي اللون وشقين مثاليين وتقريب المجال البعيد، ولا يحسب حيود الشق ذي العرض المحدود.';
           if (spec.engine === 'diffraction') return 'محزوز الحيود يتكون من عدد كبير من الشقوق المتوازية. تتحدد الاتجاهات الرئيسية المضيئة بشرط d sin(θ) = mλ، بينما يحدد عرض الشق غلاف الحيود. يحسب النموذج نمط فراونهوفر لشقوق متساوية مثالية: I ∝ sinc²(α) [sin(Nβ)/(N sin(β))]². غيّر الطول الموجي وتباعد الشقوق وعددها وعرضها وبعد الشاشة. نهمل خشونة المحزوز والانعكاسات والفقد.';
+          if (spec.engine === 'dipole') return 'يمثل المغناطيس ثنائي القطب بعزم m موجّه على محور +Y. تُحسب خطوط المجال من علاقة خطوط ثنائي القطب r = L sin²(θ)، ويُحسب المجال عند المجس من B = μ₀m/(4πr³) √(1 + 3cos²θ). غيّر العزم وموقع المجس وعدد خطوط العرض. يفترض النموذج مغناطيساً مثالياً بعيد المجال، ولا يمثل تفاصيل المجال داخل مادة المغناطيس.';
           return spec.assumptions || spec.principle || spec.summary;
         },
         dispose: function () { st.dispose(); }
