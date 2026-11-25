@@ -98,6 +98,7 @@ jobs:
             "} else if (spec.engine === 'electrostatic') {",
             "} else if (spec.engine === 'venturi') {",
             "} else if (spec.engine === 'buoyancy') {"
+            "} else if (spec.engine === 'rc') {"
           ];
           for (const marker of branchMarkers) assert.ok(engineSource.includes(marker), "Missing simulation branch: " + marker);
           assert.ok(engineSource.includes("function maxwellPdfRatio"), "Ideal gas Maxwell speed curve is missing");
@@ -428,6 +429,25 @@ jobs:
           assert.equal(sinking.submergedFraction, 1);
           assert.ok(Math.abs(neutral.netDownwardForce) < 1e-12);
           assert.equal(neutral.state, 'neutral');
+          const rc = api.normalizeSpec({
+            schema: 'mukhtabar-sim-v1',
+            title: 'دائرة RC',
+            field: 'physics',
+            engine: 'rc',
+            controls: []
+          });
+          assert.equal(rc.engine, 'rc');
+          assert.deepEqual(Array.from(rc.controls, c => c.key), ['voltage', 'resistance', 'capacitance', 'mode']);
+          assert.deepEqual(Array.from(rc.controls, c => c.value), [12, 10000, 100, 0]);
+          const rcInitial = api.rcState(12, 10000, 100, 0, 0);
+          const rcChargeTau = api.rcState(12, 10000, 100, 1, 0);
+          const rcDischargeTau = api.rcState(12, 10000, 100, 1, 1);
+          assert.ok(Math.abs(rcInitial.timeConstant - 1) < 1e-12);
+          assert.equal(rcInitial.capacitorVoltage, 0);
+          assert.ok(Math.abs(rcInitial.current - 0.0012) < 1e-12);
+          assert.ok(Math.abs(rcChargeTau.capacitorVoltage - 12 * (1 - Math.exp(-1))) < 1e-12);
+          assert.ok(Math.abs(rcDischargeTau.capacitorVoltage - 12 * Math.exp(-1)) < 1e-12);
+          assert.ok(rcDischargeTau.current < 0);
           console.log('Optics, gas, circuits, waves, collisions, chemistry, fields, fluids and buoyancy physics/schema checks passed.');
           NODE
           node --check ai-worker/worker.js
