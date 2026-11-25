@@ -152,6 +152,29 @@
     };
   };
 
+  ENGINE.dipoleField = function (moment, radius, angleDeg) {
+    var m = Math.max(0, finite(moment, 0));
+    var r = Math.max(.01, finite(radius, 1));
+    var theta = clamp(finite(angleDeg, 0), 0, 180) * Math.PI / 180;
+    var c = 1e-7 * m / (r * r * r);
+    var ct = Math.cos(theta), st = Math.sin(theta);
+    var bx = 3 * c * st * ct;
+    var by = c * (3 * ct * ct - 1);
+    return { bx: bx, by: by, magnitude: c * Math.sqrt(1 + 3 * ct * ct) };
+  };
+
+  ENGINE.malusLaw = function (sourceIntensity, angleDeg) {
+    var source = clamp(finite(sourceIntensity, 0), 0, 1);
+    var theta = finite(angleDeg, 0) * Math.PI / 180;
+    var transmission = Math.pow(Math.cos(theta), 2);
+    var afterFirst = source * .5;
+    return {
+      afterFirst: afterFirst,
+      transmission: transmission,
+      output: afterFirst * transmission
+    };
+  };
+
   function paramsFrom(def, state) {
     var out = {};
     def.params.forEach(function (p) {
@@ -220,21 +243,21 @@
           var m = param(prm, 'moment', 2);
           var r = Math.max(.01, param(prm, 'probe_radius', 1.3));
           var th = param(prm, 'probe_angle', 45) * Math.PI / 180;
-          var c = 1e-7 * m / (r * r * r);
-          var bx = 3 * c * Math.sin(th) * Math.cos(th);
-          var by = c * (3 * Math.cos(th) * Math.cos(th) - 1);
-          var magnitude = c * Math.sqrt(1 + 3 * Math.cos(th) * Math.cos(th)) * 1e6;
+          var fieldValue = ENGINE.dipoleField(m, r, th * 180 / Math.PI);
+          var bx = fieldValue.bx;
+          var by = fieldValue.by;
+          var magnitude = fieldValue.magnitude * 1e6;
           rows.push(['شدة المجال عند المجس', magnitude.toFixed(3) + ' μT']);
           rows.push(['المركبة الأفقية Bx', (bx * 1e6).toFixed(3) + ' μT']);
           rows.push(['المركبة الرأسية By', (by * 1e6).toFixed(3) + ' μT']);
         }
         if (spec.engine === 'polarization') {
-          var angle = param(prm, 'angle', 35) * Math.PI / 180;
+          var angle = param(prm, 'angle', 35);
           var source = param(prm, 'source_intensity', 100) / 100;
-          var transmission = Math.cos(angle) * Math.cos(angle);
-          rows.push(['نفاذية المحلل', (transmission * 100).toFixed(1) + '%']);
-          rows.push(['شدة الضوء بعد المستقطب الأول', (source * 50).toFixed(1) + '% من المصدر']);
-          rows.push(['شدة الضوء الخارج', (source * .5 * transmission * 100).toFixed(1) + '% من المصدر']);
+          var malus = ENGINE.malusLaw(source, angle);
+          rows.push(['نفاذية المحلل', (malus.transmission * 100).toFixed(1) + '%']);
+          rows.push(['شدة الضوء بعد المستقطب الأول', (malus.afterFirst * 100).toFixed(1) + '% من المصدر']);
+          rows.push(['شدة الضوء الخارج', (malus.output * 100).toFixed(1) + '% من المصدر']);
         }
         return rows;
       };
@@ -972,10 +995,10 @@
         var lastPolarization = '';
         updateModel = function () {
           var angleDeg = param(prm, 'angle', 35);
-          var angle = angleDeg * Math.PI / 180;
           var sourceIntensity = param(prm, 'source_intensity', 100) / 100;
-          var trans = Math.cos(angle) * Math.cos(angle);
-          var output = .5 * sourceIntensity * trans;
+          var malus = ENGINE.malusLaw(sourceIntensity, angleDeg);
+          var angle = angleDeg * Math.PI / 180;
+          var output = malus.output;
           analyzer.group.rotation.z = angle;
           var wavelength = colorForWavelength(param(prm, 'wavelength', 550));
           incomingBeam.material.color.copy(wavelength);
@@ -1141,12 +1164,7 @@
         }
 
         function dipoleAt(r, theta, moment) {
-          var c = 1e-7 * moment / (r * r * r);
-          var stheta = Math.sin(theta), ctheta = Math.cos(theta);
-          var bx = 3 * c * stheta * ctheta;
-          var by = c * (3 * ctheta * ctheta - 1);
-          var magnitude = c * Math.sqrt(1 + 3 * ctheta * ctheta);
-          return { bx: bx, by: by, magnitude: magnitude };
+          return ENGINE.dipoleField(moment, r, theta * 180 / Math.PI);
         }
         var tracerVec = new T.Vector3();
         updateModel = function () {
