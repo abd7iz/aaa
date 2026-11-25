@@ -1103,6 +1103,7 @@
         st.sph.r = 9.8;
         st.place();
 
+      } else if (spec.engine === 'decay') {
         // Statistical radioactive decay: individual lifetimes are sampled exponentially.
         var maxAtoms = 400;
         var atomBase = new Float32Array(maxAtoms * 3);
@@ -1230,6 +1231,7 @@
         st.sph.r = 9.8;
         st.place();
 
+      } else if (spec.engine === 'photoelectric') {
         // Einstein photoelectric effect: photon energy sets electron KE; intensity sets count.
         var plateMat = new T.MeshPhongMaterial({
           color: 0x8796a0, metalness: .82, roughness: .34, shininess: 76,
@@ -1380,6 +1382,7 @@
         st.sph.r = 11;
         st.place();
 
+      } else if (spec.engine === 'polarization') {
         // Malus' law with an unpolarized source, first polarizer, and rotating analyzer.
         var radius = 1.12;
         var sourceColor = new T.Color(0xe8fbff);
@@ -1494,6 +1497,7 @@
         st.sph.r = 10.8;
         st.place();
 
+      } else if (spec.engine === 'dipole') {
         // Ideal magnetic dipole field; the magnet moment points along +Y.
         var magnetGroup = new T.Group();
         S.add(magnetGroup);
@@ -1682,6 +1686,7 @@
         st.sph.r = 10.2;
         st.place();
 
+      } else if (spec.engine === 'diffraction') {
         // Fraunhofer diffraction from a finite-width N-slit grating.
         var screenW = 5.35, screenH = 3.35, screenZ = -4.25, gratingZ = .72;
         var screenGeo = new T.PlaneGeometry(screenW, screenH, 300, 8);
@@ -1863,6 +1868,7 @@
         st.sph.r = 10.8;
         st.place();
 
+      } else if (spec.engine === 'wave') {
         var length = 12, N = 260, data = new Float32Array((N + 1) * 3), geo = new T.BufferGeometry();
         geo.setAttribute('position', new T.BufferAttribute(data, 3));
         var wave = new T.Line(geo, new T.LineBasicMaterial({ color: 0x38bdf8, linewidth: 2 }));
