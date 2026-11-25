@@ -86,7 +86,7 @@
       ensure(defaultControl('field', 'شدة المجال المغناطيسي', .1, 2, .05, .8, 'T'));
       ensure(defaultControl('area', 'مساحة الملف', .01, .1, .005, .04, 'm²'));
       ensure(defaultControl('turns', 'عدد لفات الملف', 10, 200, 5, 100, 'لفة'));
-      ensure(defaultControl('angularSpeed', 'السرعة الزاوية', 1, 30, .5, 12, 'rad/s'));
+      ensure(defaultControl('angular_speed', 'السرعة الزاوية', 1, 30, .5, 12, 'rad/s'));
       ensure(defaultControl('resistance', 'مقاومة الدائرة', .5, 20, .5, 4, 'Ω'));
     }
     if (!controls.length) controls.push(defaultControl('rate', 'معدل الحركة', .1, 3, .05, 1, '×'));
@@ -184,8 +184,8 @@
         }
         if (spec.engine === 'induction') {
           var peak = param(prm, 'turns', 100) * param(prm, 'field', .8) *
-            param(prm, 'area', .04) * param(prm, 'angularSpeed', 12);
-          var phase = time * param(prm, 'angularSpeed', 12);
+            param(prm, 'area', .04) * param(prm, 'angular_speed', 12);
+          var phase = time * param(prm, 'angular_speed', 12);
           var emf = peak * Math.sin(phase);
           var fluxLinkage = param(prm, 'turns', 100) * param(prm, 'field', .8) *
             param(prm, 'area', .04) * Math.cos(phase);
@@ -805,7 +805,7 @@
           var B = param(prm, 'field', .8);
           var A = param(prm, 'area', .04);
           var N = param(prm, 'turns', 100);
-          var omega = param(prm, 'angularSpeed', 12);
+          var omega = param(prm, 'angular_speed', 12);
           var Rload = Math.max(.01, param(prm, 'resistance', 4));
           var phase = time * omega;
           var peak = N * B * A * omega;
