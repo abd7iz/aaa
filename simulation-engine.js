@@ -172,7 +172,7 @@
         return [
           { icon: playing ? 'pause' : 'play', label: playing ? 'إيقاف' : 'تشغيل', primary: true, fn: function () { playing = !playing; } },
           { icon: 'rotate-ccw', label: 'إعادة', fn: function () { reset(); } },
-          { icon: 'eye', label: 'توسيط المشهد', fn: function () { st.target.set(0, 0, 0); st.sph.r = spec.engine === 'tokamak' ? 14 : 10; st.place(); } }
+          { icon: 'eye', label: 'توسيط المشهد', fn: function () { st.target.set(0, 0, 0); st.sph.r = spec.engine === 'tokamak' ? 13.5 : 10; st.place(); } }
         ];
       };
       function reset() { time = 0; if (typeof resetModel === 'function') resetModel(); }
@@ -248,24 +248,35 @@
           S.add(winding);
         }
 
-        // D-shaped toroidal-field coils: straight inboard legs and rounded outboard returns.
-        var coilMaterial = new T.MeshPhongMaterial({
-          color: 0x927b5b, emissive: 0x080604, metalness: .82, shininess: 105
-        });
+        // Broad, bevelled D-shaped metal coils (solid plates, not thin wire loops).
         var coilInner = R - .78, coilOuter = R + 1.02, coilHalfH = 1.62;
+        var coilShape = new T.Shape();
+        coilShape.moveTo(coilInner, -coilHalfH);
+        coilShape.lineTo(coilInner, coilHalfH);
+        coilShape.bezierCurveTo(coilInner + .12, coilHalfH + .24, coilOuter, coilHalfH + .24, coilOuter, 0);
+        coilShape.bezierCurveTo(coilOuter, -coilHalfH - .24, coilInner + .12, -coilHalfH - .24, coilInner, -coilHalfH);
+        coilShape.closePath();
+        var coilGeometry = new T.ExtrudeGeometry(coilShape, {
+          depth: .22,
+          steps: 1,
+          curveSegments: 16,
+          bevelEnabled: true,
+          bevelSegments: 3,
+          bevelSize: .045,
+          bevelThickness: .045
+        });
+        coilGeometry.translate(0, 0, -.11);
+        var coilMaterial = new T.MeshStandardMaterial({
+          color: 0x879ba8, metalness: .78, roughness: .3
+        });
         for (var c = 0; c < 12; c++) {
           var coilAngle = c / 12 * Math.PI * 2;
-          var coilPoints = [];
-          coilPoints.push(new T.Vector3(coilInner * Math.cos(coilAngle), -coilHalfH, coilInner * Math.sin(coilAngle)));
-          coilPoints.push(new T.Vector3(coilInner * Math.cos(coilAngle), coilHalfH, coilInner * Math.sin(coilAngle)));
-          for (var cp = 1; cp < 48; cp++) {
-            var a = Math.PI / 2 - Math.PI * cp / 48;
-            var radial = coilInner + (coilOuter - coilInner) * Math.cos(a);
-            var vertical = coilHalfH * Math.sin(a);
-            coilPoints.push(new T.Vector3(radial * Math.cos(coilAngle), vertical, radial * Math.sin(coilAngle)));
-          }
-          var coilCurve = new T.CatmullRomCurve3(coilPoints, true, 'centripetal');
-          var coil = new T.Mesh(new T.TubeGeometry(coilCurve, 128, .062, 8, true), coilMaterial);
+          var radialAxis = new T.Vector3(Math.cos(coilAngle), 0, Math.sin(coilAngle));
+          var verticalAxis = new T.Vector3(0, 1, 0);
+          var tangentAxis = new T.Vector3(-Math.sin(coilAngle), 0, Math.cos(coilAngle));
+          var coilFrame = new T.Matrix4().makeBasis(radialAxis, verticalAxis, tangentAxis);
+          var coil = new T.Mesh(coilGeometry, coilMaterial);
+          coil.quaternion.setFromRotationMatrix(coilFrame);
           S.add(coil);
         }
 
@@ -450,7 +461,7 @@
         };
         resetModel = function () { time = 0; updateModel(0); };
         updateModel(0);
-        st.sph.r = 16; st.place();
+        st.sph.r = 13.5; st.place();
       } else if (spec.engine === 'wave') {
         var length = 12, N = 260, data = new Float32Array((N + 1) * 3), geo = new T.BufferGeometry();
         geo.setAttribute('position', new T.BufferAttribute(data, 3));
