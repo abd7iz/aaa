@@ -6,7 +6,7 @@
 <meta name="theme-color" content="#070b14">
 <title>المختبر — MUKHTABAR</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%2338bdf8'/%3E%3Cpath d='M12 6h8M14 6v8l-5 9a2 2 0 0 0 2 3h10a2 2 0 0 0 2-3l-5-9V6' fill='none' stroke='%23fff' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
-<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<script async src="https://telegram.org/js/telegram-web-app.js" onload="if(window.MUKHTABAR_ATTACH_TELEGRAM)window.MUKHTABAR_ATTACH_TELEGRAM()"></script>
 <style>
 :root{--bg:#070b14;--s1:#0e1526;--s2:#141d36;--s3:#1b2645;--line:rgba(255,255,255,.08);--tx:#e8ecf7;--mut:#8b95b3;--ac:#38bdf8;--ac2:#8b5cf6;--bio:#34d399;--phy:#fb923c;--bad:#f87171;--r:16px;--vh:100vh;--tg-top:0px;--tg-bottom:0px}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -168,6 +168,14 @@ function initTelegram(){
 function setBackButton(show){
   try{if(inTG&&tg.isVersionAtLeast('6.1')){show?tg.BackButton.show():tg.BackButton.hide();}}catch(e){}
 }
+window.MUKHTABAR_ATTACH_TELEGRAM=function(){
+  if(!tg&&window.Telegram&&window.Telegram.WebApp){
+    tg=window.Telegram.WebApp;
+    inTG=!!(tg&&tg.initData);
+    initTelegram();
+    setBackButton(false);
+  }
+};
 
 /* ---------- Storage (IndexedDB with localStorage fallback) ---------- */
 var DB=(function(){
