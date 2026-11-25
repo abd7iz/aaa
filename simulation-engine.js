@@ -258,14 +258,14 @@
           var coilPoints = [];
           coilPoints.push(new T.Vector3(coilInner * Math.cos(coilAngle), -coilHalfH, coilInner * Math.sin(coilAngle)));
           coilPoints.push(new T.Vector3(coilInner * Math.cos(coilAngle), coilHalfH, coilInner * Math.sin(coilAngle)));
-          for (var cp = 0; cp <= 48; cp++) {
+          for (var cp = 1; cp < 48; cp++) {
             var a = Math.PI / 2 - Math.PI * cp / 48;
-            var radial = (coilInner + coilOuter) * .5 + (coilOuter - coilInner) * .5 * Math.cos(a);
+            var radial = coilInner + (coilOuter - coilInner) * Math.cos(a);
             var vertical = coilHalfH * Math.sin(a);
             coilPoints.push(new T.Vector3(radial * Math.cos(coilAngle), vertical, radial * Math.sin(coilAngle)));
           }
-          var coilCurve = new T.CatmullRomCurve3(coilPoints, false, 'centripetal');
-          var coil = new T.Mesh(new T.TubeGeometry(coilCurve, 128, .062, 8, false), coilMaterial);
+          var coilCurve = new T.CatmullRomCurve3(coilPoints, true, 'centripetal');
+          var coil = new T.Mesh(new T.TubeGeometry(coilCurve, 128, .062, 8, true), coilMaterial);
           S.add(coil);
         }
 
