@@ -565,8 +565,8 @@
         });
 
         var slitEdgeMat = new T.MeshBasicMaterial({ color: 0x79eaff });
-        [-.48, .48].forEach(function (sx) {
-          [-.075, .075].forEach(function (dx) {
+        [-.425, .425].forEach(function (sx) {
+          [-.035, .035].forEach(function (dx) {
             var edge = new T.Mesh(new T.BoxGeometry(.018, 3.35, .20), slitEdgeMat);
             edge.position.set(sx + dx, 0, barrierZ);
             S.add(edge);
@@ -585,11 +585,11 @@
         // Expanding wavefronts pass through each slit toward the screen.
         var waveRings = [], ringMaterials = [];
         for (var slit = 0; slit < 2; slit++) {
-          var slitX = slit === 0 ? -.48 : .48;
+          var slitX = slit === 0 ? -.425 : .425;
           for (var wr = 0; wr < 4; wr++) {
             var ringMat = new T.MeshBasicMaterial({
               color: slit === 0 ? 0x42d8ff : 0x9b8cff,
-              transparent: true, opacity: .48, blending: T.AdditiveBlending,
+              transparent: true, opacity: .425, blending: T.AdditiveBlending,
               depthWrite: false, side: T.DoubleSide
             });
             var ring = new T.Mesh(new T.TorusGeometry(.52, .012, 6, 56), ringMat);
@@ -602,7 +602,7 @@
 
         // Two reference rays connect the source to the two slit centres.
         var rayMaterials = [];
-        [-.48, .48].forEach(function (sx) {
+        [-.425, .425].forEach(function (sx) {
           var rayGeo = new T.BufferGeometry().setFromPoints([
             new T.Vector3(0, 0, 1.98), new T.Vector3(sx, 0, barrierZ + .16)
           ]);
@@ -612,7 +612,6 @@
         });
 
         var patternSignature = '';
-        var screenColor = new T.Color();
         function updatePattern() {
           var lambdaNm = param(prm, 'wavelength', 550);
           var slitMm = param(prm, 'separation', .25);
@@ -621,7 +620,6 @@
           if (signature === patternSignature) return;
           patternSignature = signature;
           var pos = screenGeo.attributes.position;
-          var fringeSpacingM = (lambdaNm * 1e-9 * distanceM) / (slitMm * 1e-3);
           var halfPhysicalWidth = .05;
           for (var vi = 0; vi < pos.count; vi++) {
             var xWorld = pos.getX(vi);
