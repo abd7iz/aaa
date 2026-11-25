@@ -98,7 +98,17 @@ jobs:
           assert.equal(induction.engine, 'induction');
           assert.deepEqual(Array.from(induction.controls, c => c.key), ['field', 'area', 'turns', 'angular_speed', 'resistance']);
           assert.deepEqual(Array.from(induction.controls, c => c.value), [0.8, 0.04, 100, 12, 4]);
-          console.log('Interference and induction engine schema smoke tests passed.');
+          const diffraction = api.normalizeSpec({
+            schema: 'mukhtabar-sim-v1',
+            title: 'محزوز الحيود',
+            field: 'physics',
+            engine: 'diffraction',
+            controls: []
+          });
+          assert.equal(diffraction.engine, 'diffraction');
+          assert.deepEqual(Array.from(diffraction.controls, c => c.key), ['wavelength', 'grating_spacing', 'slit_count', 'slit_width', 'distance']);
+          assert.deepEqual(Array.from(diffraction.controls, c => c.value), [550, 5, 5, 0.35, 1.5]);
+          console.log('Interference, induction and diffraction schema smoke tests passed.');
           NODE
           node --check ai-worker/worker.js
           node --check ai-config.js
