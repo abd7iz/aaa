@@ -28,7 +28,7 @@ jobs:
 
           source = Path("index.html").read_text(encoding="utf-8")
           assert '<html lang="ar" dir="rtl">' in source, "Arabic RTL document root is missing"
-          assert "$('.tab').forEach" not in source, "A single DOM element is being treated as a collection"
+          assert not re.search(r"(?<!\\$)\\$\\(\'.tab\'\\)\\.forEach", source), "A single DOM element is being treated as a collection"
 
           class DocumentChecker(HTMLParser):
               def __init__(self):
