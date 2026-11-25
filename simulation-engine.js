@@ -3335,9 +3335,9 @@
         var inletRadius = param(prm, 'inlet_radius', .1) * 8;
         var throatRadius = param(prm, 'throat_radius', .06) * 8;
         pipeSection(inletRadius, inletRadius, pipeLength, -1.8);
-        pipeSection(throatRadius, inletRadius, pipeLength, -.9);
+        pipeSection(inletRadius, throatRadius, pipeLength, -.9);
         pipeSection(throatRadius, throatRadius, pipeLength, 0);
-        pipeSection(inletRadius, throatRadius, pipeLength, .9);
+        pipeSection(throatRadius, inletRadius, pipeLength, .9);
         pipeSection(inletRadius, inletRadius, pipeLength, 1.8);
 
         var fluidParticles = [], fluidCount = 52;
@@ -3351,7 +3351,7 @@
           S.add(dot);
           fluidParticles.push({
             mesh: dot,
-            phase: (flowSeeds() + 1) * .5,
+            x: -2.25 + (flowSeeds() + 1) * .5 * 4.5,
             angle: (flowSeeds() + 1) * Math.PI,
             radial: Math.sqrt((flowSeeds() + 1) * .5) * .72
           });
@@ -3367,7 +3367,7 @@
         throatGauge.position.set(0, .72, .1);
         S.add(inletGauge); S.add(throatGauge);
 
-        updateModel = function () {
+        updateModel = function (dt) {
           var state = ENGINE.venturiState(
             param(prm, 'inlet_velocity', 2),
             param(prm, 'inlet_radius', .1),
@@ -3377,15 +3377,19 @@
           );
           var rIn = param(prm, 'inlet_radius', .1) * 8;
           var rTh = param(prm, 'throat_radius', .06) * 8;
-          var velocityRatio = state.throatSpeed / Math.max(.001, state.inletSpeed);
+          var dtSafe = clamp(finite(dt, 0), 0, .05);
           fluidParticles.forEach(function (entry) {
-            var cycle = (entry.phase + time * .085 * velocityRatio) % 1;
-            var x = -2.25 + cycle * 4.5;
+            var x = entry.x;
             var localRadius;
-            if (x < -.9) localRadius = rIn;
-            else if (x < 0) localRadius = rIn + (rTh - rIn) * ((x + .9) / .9);
-            else if (x < .9) localRadius = rTh;
-            else localRadius = rTh + (rIn - rTh) * ((x - .9) / .9);
+            if (x < -1.35) localRadius = rIn;
+            else if (x < -.45) localRadius = rIn + (rTh - rIn) * ((x + 1.35) / .9);
+            else if (x < .45) localRadius = rTh;
+            else if (x < 1.35) localRadius = rTh + (rIn - rTh) * ((x - .45) / .9);
+            else localRadius = rIn;
+            var localSpeed = state.inletSpeed * Math.pow(rIn / Math.max(.001, localRadius), 2);
+            x += localSpeed * .35 * dtSafe;
+            if (x > 2.25) x = -2.25 + (x - 2.25);
+            entry.x = x;
             var rr = localRadius * entry.radial;
             entry.mesh.position.set(x, Math.cos(entry.angle) * rr, Math.sin(entry.angle) * rr);
           });
