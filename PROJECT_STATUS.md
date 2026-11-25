@@ -1,7 +1,7 @@
 # MUKHTABAR — Project Status
 
 Last updated: 2026-11-25
-Current UI asset version: v33
+Current UI asset version: v34
 
 ## Repository
 - Code: https://github.com/abd7iz/aaa
@@ -50,6 +50,9 @@ Current UI asset version: v33
 - Expected population: N(t)=N₀ exp(−λt), λ=ln(2)/T½.
 - Individual nucleus lifetimes are sampled from an exponential distribution; observed counts fluctuate around expected counts.
 - Visual tracers represent generic decay events, not a specific radiation type or isotope.
+
+## AI routing
+- The AI prompt now prefers existing built-in experiment cards (mitosis, projectile, orbit, interference, induction, diffraction, dipole, polarization, photoelectric, decay) rather than rebuilding them as generic scenes.
 
 ## Validation
 - CI parses all inline app scripts, simulation-engine.js, Worker and config.
