@@ -1,7 +1,7 @@
 # MUKHTABAR — Project Status
 
 Last updated: 2026-11-25
-Current UI asset version: v34
+Current UI asset version: v36
 
 ## Repository
 - Code: https://github.com/abd7iz/aaa
@@ -21,7 +21,8 @@ Current UI asset version: v34
 8. Magnetic dipole — analytic dipole field lines, a sampled 2D vector-arrow map, animated direction tracers and movable probe showing |B|, Bx and By; controls magnetic moment, probe radius, probe angle and line count.
 9. Photoelectric effect — photon/electron visualization with threshold, maximum kinetic energy and stopping-voltage readouts.
 10. Radioactive decay — stochastic nucleus lifetimes, visible remaining nuclei, radiation-event tracers and comparison with exponential expectation.
-11. Sinusoidal wave, pendulum and generated 3D scene engines.
+11. Bohr atomic spectrum — hydrogen-like ion energy levels, electron transitions, emitted/absorbed photon and calculated wavelength.
+12. Sinusoidal wave, pendulum and generated 3D scene engines.
 
 ## Physics models
 - Double slit: `I ∝ cos²(π d x / λL)`; defaults 550 nm, 0.25 mm separation and 1.5 m distance; expected fringe spacing 3.30 mm.
@@ -57,6 +58,13 @@ Current UI asset version: v34
 ## Ready-made core models
 - Tokamak, sinusoidal wave and pendulum are direct cards in the physics list, not AI-only generated scenes.
 - Local demo matching and AI built-in routing recognize these experiment IDs.
+
+## Bohr atomic spectrum
+- Engine ID: bohr
+- Defaults: Z=1, initial level nᵢ=3, final level n𝒇=2.
+- Model: Eₙ=−13.605693 Z²/n² eV; ΔE=13.605693 Z²|1/n𝒇²−1/nᵢ²| eV; λ=1239.841984/ΔE nm.
+- 3→2 for hydrogen produces the H-alpha line near 656 nm. 2→1 produces a UV line near 121.6 nm.
+- Assumptions: hydrogen-like ions only; no multi-electron structure or fine structure.
 
 ## Validation
 - CI parses all inline app scripts, simulation-engine.js, Worker and config.
