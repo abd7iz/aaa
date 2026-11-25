@@ -51,7 +51,7 @@
     if (!raw || typeof raw !== 'object' || raw.schema !== 'mukhtabar-sim-v1') {
       throw new Error('صيغة التجربة التي أنشأها الذكاء الاصطناعي غير معروفة.');
     }
-    var engine = ['tokamak', 'wave', 'pendulum', 'interference', 'induction', 'diffraction', 'dipole', 'polarization', 'photoelectric', 'decay', 'bohr', 'blackbody', 'idealgas', 'rlc', 'doppler', 'scene'].indexOf(raw.engine) >= 0 ? raw.engine : null;
+    var engine = ['tokamak', 'wave', 'pendulum', 'interference', 'induction', 'diffraction', 'dipole', 'polarization', 'photoelectric', 'decay', 'bohr', 'blackbody', 'idealgas', 'rlc', 'doppler', 'standingwave', 'scene'].indexOf(raw.engine) >= 0 ? raw.engine : null;
     if (!engine) throw new Error('نوع المحاكاة غير مدعوم في محرك المختبر الحالي.');
     var field = FIELDS.indexOf(raw.field) >= 0 ? raw.field : 'physics';
     var used = {}, controls = [];
@@ -133,6 +133,13 @@
       ensure(defaultControl('source_velocity', 'سرعة المصدر (+ باتجاه المستمع)', -100, 100, 1, 30, 'm/s'));
       ensure(defaultControl('observer_toward', 'سرعة المستمع نحو المصدر', 0, 80, 1, 0, 'm/s'));
       ensure(defaultControl('sound_speed', 'سرعة الصوت', 300, 400, 1, 343, 'm/s'));
+    } else if (engine === 'standingwave') {
+      ensure(defaultControl('length', 'طول الوتر', .5, 2, .05, 1, 'm'));
+      ensure(defaultControl('tension', 'شد الوتر', 10, 120, 1, 50, 'N'));
+      ensure(defaultControl('linear_density', 'الكثافة الخطية', .001, .02, .0005, .005, 'kg/m'));
+      ensure(defaultControl('harmonic', 'رقم التوافقية n', 1, 5, 1, 2, ''));
+      ensure(defaultControl('drive_frequency', 'تردد الإثارة', 20, 400, 1, 100, 'Hz'));
+      ensure(defaultControl('amplitude', 'السعة الاسمية', .1, .6, .01, .25, 'm'));
     }
     if (!controls.length) controls.push(defaultControl('rate', 'معدل الحركة', .1, 3, .05, 1, '×'));
     if (controls.length > 7) controls = controls.slice(0, 7);
@@ -336,6 +343,31 @@
     };
   };
 
+  ENGINE.stringWaveState = function (lengthM, tensionN, linearDensity, harmonic, driveFrequency) {
+    var L = Math.max(.001, finite(lengthM, 1));
+    var tension = Math.max(.001, finite(tensionN, 50));
+    var mu = Math.max(.000001, finite(linearDensity, .005));
+    var n = clamp(Math.round(finite(harmonic, 2)), 1, 20);
+    var f = Math.max(0, finite(driveFrequency, 100));
+    var speed = Math.sqrt(tension / mu);
+    var fundamental = speed / (2 * L);
+    var resonant = n * fundamental;
+    var wavelength = 2 * L / n;
+    var ratio = f / Math.max(.0001, resonant);
+    var detuning = (f - resonant) / Math.max(.0001, resonant);
+    var damping = .04;
+    var response = 1 / Math.sqrt(Math.pow(1 - ratio * ratio, 2) + Math.pow(2 * damping * ratio, 2));
+    return {
+      waveSpeed: speed,
+      fundamentalFrequency: fundamental,
+      resonantFrequency: resonant,
+      wavelength: wavelength,
+      detuning: detuning,
+      response: Math.min(4, response),
+      isNearResonance: Math.abs(detuning) < .04
+    };
+  };
+
   function paramsFrom(def, state) {
     var out = {};
     def.params.forEach(function (p) {
@@ -355,7 +387,7 @@
       id: 'generated',
       field: spec.field === 'biology' ? 'bio' : 'phy',
       fieldLabel: ({ physics: 'الفيزياء', biology: 'الأحياء', chemistry: 'الكيمياء', astronomy: 'الفلك', mathematics: 'الرياضيات' })[spec.field],
-      icon: spec.engine === 'tokamak' ? 'atom' : spec.engine === 'wave' ? 'activity' : spec.engine === 'pendulum' ? 'clock' : spec.engine === 'interference' ? 'waves' : spec.engine === 'induction' ? 'zap' : spec.engine === 'diffraction' ? 'scan-eye' : spec.engine === 'dipole' ? 'magnet' : spec.engine === 'polarization' ? 'sun' : spec.engine === 'photoelectric' ? 'zap' : spec.engine === 'decay' ? 'atom' : spec.engine === 'bohr' ? 'orbit' : spec.engine === 'blackbody' ? 'thermometer-sun' : spec.engine === 'idealgas' ? 'gauge' : spec.engine === 'rlc' ? 'activity' : spec.engine === 'doppler' ? 'audio-lines' : 'shapes',
+      icon: spec.engine === 'tokamak' ? 'atom' : spec.engine === 'wave' ? 'activity' : spec.engine === 'pendulum' ? 'clock' : spec.engine === 'interference' ? 'waves' : spec.engine === 'induction' ? 'zap' : spec.engine === 'diffraction' ? 'scan-eye' : spec.engine === 'dipole' ? 'magnet' : spec.engine === 'polarization' ? 'sun' : spec.engine === 'photoelectric' ? 'zap' : spec.engine === 'decay' ? 'atom' : spec.engine === 'bohr' ? 'orbit' : spec.engine === 'blackbody' ? 'thermometer-sun' : spec.engine === 'idealgas' ? 'gauge' : spec.engine === 'rlc' ? 'activity' : spec.engine === 'doppler' ? 'audio-lines' : spec.engine === 'standingwave' ? 'waves' : 'shapes',
       title: spec.title,
       short: spec.summary,
       spec: spec,
@@ -506,6 +538,19 @@
           rows.push(['نسبة الانزياح', ((shifted.frequencyRatio - 1) * 100).toFixed(1) + '%']);
           rows.push(['طول موجة المصدر', shifted.sourceWavelength.toFixed(3) + ' m']);
           rows.push(['طول الموجة عند المستمع', shifted.observedWavelength.toFixed(3) + ' m']);
+        }
+        if (spec.engine === 'standingwave') {
+          var waveState = ENGINE.stringWaveState(
+            param(prm, 'length', 1), param(prm, 'tension', 50),
+            param(prm, 'linear_density', .005), param(prm, 'harmonic', 2),
+            param(prm, 'drive_frequency', 100)
+          );
+          rows.push(['سرعة انتشار الموجة', waveState.waveSpeed.toFixed(2) + ' m/s']);
+          rows.push(['التردد الأساسي', waveState.fundamentalFrequency.toFixed(2) + ' Hz']);
+          rows.push(['تردد الرنين لهذه التوافقية', waveState.resonantFrequency.toFixed(2) + ' Hz']);
+          rows.push(['الطول الموجي', waveState.wavelength.toFixed(3) + ' m']);
+          rows.push(['الانحراف عن الرنين', (waveState.detuning * 100).toFixed(2) + '%']);
+          rows.push(['الحالة', waveState.isNearResonance ? 'قرب الرنين' : 'خارج الرنين']);
         }
         return rows;
       };
@@ -2652,6 +2697,99 @@
         updateModel(0);
         st.sph.r = 9.5;
         st.place();
+      } else if (spec.engine === 'standingwave') {
+        // Fixed-end string with a selectable standing-wave harmonic and resonance response.
+        var stringLengthWorld = 4.2, stringHalf = stringLengthWorld / 2, stringZ = .12;
+        var supportMaterial = new T.MeshPhongMaterial({
+          color: 0x8498a6, metalness: .78, shininess: 92
+        });
+        [-stringHalf, stringHalf].forEach(function (x) {
+          var post = new T.Mesh(new T.CylinderGeometry(.11, .11, 1.35, 18), supportMaterial);
+          post.position.set(x, 0, 0);
+          S.add(post);
+          var clamp = new T.Mesh(new T.BoxGeometry(.28, .24, .3), supportMaterial);
+          clamp.position.set(x, 0, stringZ);
+          S.add(clamp);
+        });
+        var stringMaterial = new T.MeshPhongMaterial({
+          color: 0x49d5ff, emissive: 0x07526d, emissiveIntensity: .75,
+          specular: 0xd4f7ff, shininess: 100
+        });
+        var segmentCount = 180;
+        var stringPositions = new Float32Array((segmentCount + 1) * 3);
+        var stringGeometry = new T.BufferGeometry();
+        stringGeometry.setAttribute('position', new T.BufferAttribute(stringPositions, 3));
+        var stringLine = new T.Line(stringGeometry,
+          new T.LineBasicMaterial({ color: 0x55dfff, transparent: true, opacity: .97 }));
+        S.add(stringLine);
+
+        var nodeMarkers = [], antinodeMarkers = [];
+        var markerBlue = new T.MeshPhongMaterial({ color: 0x61dfff, emissive: 0x0a4158, shininess: 90 });
+        var markerGold = new T.MeshPhongMaterial({ color: 0xffcb71, emissive: 0x654010, shininess: 82 });
+        function rebuildStringMarkers() {
+          nodeMarkers.forEach(function (m) { S.remove(m); m.geometry.dispose(); });
+          antinodeMarkers.forEach(function (m) { S.remove(m); m.geometry.dispose(); });
+          nodeMarkers = []; antinodeMarkers = [];
+          var n = Math.round(param(prm, 'harmonic', 2));
+          for (var ni = 0; ni <= n; ni++) {
+            var node = new T.Mesh(new T.SphereGeometry(.075, 14, 10), markerBlue);
+            node.position.set(-stringHalf + stringLengthWorld * ni / n, 0, stringZ + .02);
+            S.add(node); nodeMarkers.push(node);
+          }
+          for (var ai = 0; ai < n; ai++) {
+            var anti = new T.Mesh(new T.SphereGeometry(.085, 14, 10), markerGold);
+            anti.position.set(-stringHalf + stringLengthWorld * (ai + .5) / n, 0, stringZ + .04);
+            S.add(anti); antinodeMarkers.push(anti);
+          }
+        }
+        rebuildStringMarkers();
+
+        var springMaterial = new T.MeshPhongMaterial({ color: 0x9aabb6, metalness: .72, shininess: 72 });
+        var driver = new T.Mesh(new T.CylinderGeometry(.16, .16, .28, 24), springMaterial);
+        driver.rotation.z = Math.PI / 2;
+        driver.position.set(-stringHalf - .35, 0, stringZ);
+        S.add(driver);
+        var driverLight = new T.PointLight(0x4adfff, .7, 3);
+        driverLight.position.copy(driver.position);
+        S.add(driverLight);
+
+        var lastHarmonic = Math.round(param(prm, 'harmonic', 2));
+        updateModel = function () {
+          var n = Math.round(param(prm, 'harmonic', 2));
+          if (n !== lastHarmonic) {
+            rebuildStringMarkers();
+            lastHarmonic = n;
+          }
+          var waveState = ENGINE.stringWaveState(
+            param(prm, 'length', 1), param(prm, 'tension', 50),
+            param(prm, 'linear_density', .005), n,
+            param(prm, 'drive_frequency', 100)
+          );
+          var nominalAmplitude = param(prm, 'amplitude', .25);
+          var responseAmplitude = nominalAmplitude * waveState.response / 4;
+          var phase = 2 * Math.PI * param(prm, 'drive_frequency', 100) * time;
+          for (var si = 0; si <= segmentCount; si++) {
+            var u = si / segmentCount;
+            var x = -stringHalf + stringLengthWorld * u;
+            var shape = Math.sin(n * Math.PI * u);
+            var y = responseAmplitude * shape * Math.cos(phase);
+            stringPositions[si * 3] = x;
+            stringPositions[si * 3 + 1] = y;
+            stringPositions[si * 3 + 2] = stringZ;
+          }
+          stringGeometry.attributes.position.needsUpdate = true;
+          antinodeMarkers.forEach(function (m, index) {
+            var u = (index + .5) / n;
+            var y = responseAmplitude * Math.sin(n * Math.PI * u) * Math.cos(phase);
+            m.position.y = y;
+          });
+          driver.rotation.x = .12 * Math.sin(phase);
+          driverLight.intensity = .25 + .6 * Math.abs(Math.cos(phase));
+        };
+        resetModel = function () { time = 0; updateModel(0); };
+        updateModel(0);
+        st.sph.r = 9.2;
+        st.place();
       } else {
         var meshes = [];
         spec.objects.forEach(function (o) {
@@ -2733,6 +2871,7 @@
           if (spec.engine === 'idealgas') return 'يطبق النموذج قانون الغاز المثالي PV=nRT. مكونات سرعة الجزيئات تُسحب عشوائياً من توزيعات غاوسية مستقلة، فتنتج تقريباً توزيع ماكسويل–بولتزمان للسرعات. الرسم يقارن مدرج السرعات المشاهد بالمنحنى النظري. تزداد السرعات المميزة مع الجذر التربيعي لدرجة الحرارة. تُعرض السرعة الأكثر احتمالاً والمتوسطة وRMS. كمية الغاز تحدد عدد الجسيمات المعروضة، والحجم يحرك المكبس. نهمل التصادمات البينية التفصيلية وتغير التوزيع بسببها.';
           if (spec.engine === 'rlc') return 'تتصل المقاومة والملف والمكثف على التوالي بمصدر متناوب. المفاعلة الحثية XL=ωL والمفاعلة السعوية XC=1/(ωC)، والممانعة Z=√(R²+(XL−XC)²). يبلغ التيار أعظمه قرب تردد الرنين f0=1/(2π√LC). يعرض المنظار موجتي الجهد والتيار وفرق الطور بينهما. نهمل مقاومة الملف الداخلية والطفيليات وتأثير الحمل غير المثالي.';
           if (spec.engine === 'doppler') return 'يتغير التردد المسموع بسبب الحركة النسبية بين المصدر والمستمع. مع اعتبار سرعة المصدر موجبة باتجاه المستمع وسرعة المستمع موجبة باتجاه المصدر: f′=f(c+vo)/(c−vs). عند الاقتراب تتقارب جبهات الموجة أمام المصدر ويزداد التردد، وعند الابتعاد تتباعد ويقل التردد. النموذج يستخدم موجات دائرية توضيحية وصوتاً في وسط ساكن، ولا يحسب انعكاس الصوت أو الرياح أو تغيّر سرعة الصوت مع الحرارة.';
+          if (spec.engine === 'standingwave') return 'تتكون الموجة الواقفة من تراكب موجتين متعاكستين على وتر مثبت الطرفين. سرعة الموجة v=√(T/μ)، والترددات الطبيعية fn=n v/(2L)، والطول الموجي λn=2L/n. تظهر العقد عند نقاط الإزاحة الصفرية والبطون عند أقصى إزاحة. يغيّر شد الوتر والكثافة الخطية وطوله ترددات الرنين. النموذج يوضح استجابة توافقية مع تخميد مبسط، ولا يحسب خواص الوتر غير الخطية.';
           return spec.assumptions || spec.principle || spec.summary;
         },
         dispose: function () { st.dispose(); }
