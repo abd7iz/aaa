@@ -6,7 +6,9 @@ The interactive orbit scene loads these texture maps from the public
 [solar-system-viz repository](https://github.com/JiayuanZhu/solar-system-viz):
 
 - `2k_earth_daymap.jpg` — Earth daytime surface map.
+- `2k_earth_nightmap.jpg` — city-light map, blended onto the night-facing hemisphere.
 - `2k_earth_clouds.jpg` — Earth cloud layer.
+- `2k_sun.jpg` — solar surface map used on the Sun mesh.
 
 The repository README attributes these texture assets to
 [Solar System Scope](https://www.solarsystemscope.com/textures/), licensed
