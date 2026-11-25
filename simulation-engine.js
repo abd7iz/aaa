@@ -2882,7 +2882,7 @@
           var e = param(prm, 'restitution', 1);
           collisionResult = ENGINE.collisionOutcome(m1, m2, u1, u2, e);
           var speedSum = Math.max(.1, u1 - u2);
-          collisionMoment = (3.9 - .76) / (speedSum * .45);
+          collisionMoment = (3.9 - .76) / (speedSum * .34);
           lastCollisionSignature = [m1, m2, u1, u2, e].join('|');
         }
         setupCollision();
@@ -2895,11 +2895,11 @@
           ].join('|');
           if (signature !== lastCollisionSignature) setupCollision();
 
-          var cycleDuration = collisionMoment + 4.2;
+          var cycleDuration = collisionMoment + 2.8;
           var localTime = time % cycleDuration;
           var m1 = param(prm, 'mass1', 2), m2 = param(prm, 'mass2', 3);
           var u1 = param(prm, 'speed1', 3), u2 = -param(prm, 'speed2', 2);
-          var scaleSpeed = .45;
+          var scaleSpeed = .34;
           var contactTime = collisionMoment;
           var contactX1 = -1.95 + u1 * scaleSpeed * contactTime;
           var contactX2 = 1.95 + u2 * scaleSpeed * contactTime;
