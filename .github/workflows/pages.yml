@@ -92,7 +92,8 @@ jobs:
             "} else if (spec.engine === 'idealgas') {",
             "} else if (spec.engine === 'rlc') {",
             "} else if (spec.engine === 'doppler') {",
-            "} else if (spec.engine === 'standingwave') {"
+            "} else if (spec.engine === 'standingwave') {",
+            "} else if (spec.engine === 'collision') {"
           ];
           for (const marker of branchMarkers) assert.ok(engineSource.includes(marker), "Missing simulation branch: " + marker);
           assert.ok(engineSource.includes("function maxwellPdfRatio"), "Ideal gas Maxwell speed curve is missing");
@@ -328,7 +329,26 @@ jobs:
           assert.ok(!stringOffResonance.isNearResonance);
           assert.ok(stringDefault.response > stringOffResonance.response);
           assert.ok(Math.abs(stringDoubleTension.resonantFrequency - 100 * Math.sqrt(2)) < 1e-9);
-          console.log('Optics, atomic spectra, blackbody, gas, RLC, Doppler and standing-wave physics/schema checks passed.');
+          const collision = api.normalizeSpec({
+            schema: 'mukhtabar-sim-v1',
+            title: 'تصادم خطي',
+            field: 'physics',
+            engine: 'collision',
+            controls: []
+          });
+          assert.equal(collision.engine, 'collision');
+          assert.deepEqual(Array.from(collision.controls, c => c.key), ['mass1', 'mass2', 'speed1', 'speed2', 'restitution']);
+          assert.deepEqual(Array.from(collision.controls, c => c.value), [2, 3, 3, 2, 1]);
+          const elastic = api.collisionOutcome(2, 3, 3, -2, 1);
+          const inelastic = api.collisionOutcome(2, 3, 3, -2, 0);
+          assert.ok(Math.abs(elastic.momentumAfter - elastic.momentumBefore) < 1e-12);
+          assert.ok(Math.abs(elastic.kineticEnergyAfter - elastic.kineticEnergyBefore) < 1e-12);
+          assert.ok(Math.abs(elastic.velocity1After + 3) < 1e-12);
+          assert.ok(Math.abs(elastic.velocity2After - 2) < 1e-12);
+          assert.ok(Math.abs(inelastic.momentumAfter - inelastic.momentumBefore) < 1e-12);
+          assert.ok(Math.abs(inelastic.velocity1After - inelastic.velocity2After) < 1e-12);
+          assert.ok(Math.abs(inelastic.kineticEnergyAfter) < 1e-12);
+          console.log('Optics, atomic spectra, blackbody, gas, RLC, Doppler, standing-wave and collision physics/schema checks passed.');
           NODE
           node --check ai-worker/worker.js
           node --check ai-config.js
