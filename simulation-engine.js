@@ -236,16 +236,30 @@
         var plasma = new T.Mesh(shellA.geometry, plasmaOuterMat); S.add(plasma);
         var plasmaCore = new T.Mesh(shellB.geometry, plasmaInnerMat); S.add(plasmaCore);
 
-        // Central solenoid: a vertical magnetic core with stacked windings.
-        var core = new T.Mesh(new T.CylinderGeometry(.34, .34, 3.15, 32),
-          new T.MeshPhongMaterial({ color: 0x536579, metalness: .72, shininess: 85 }));
+        // Central solenoid: six distinct stacked superconducting modules.
+        var core = new T.Mesh(new T.CylinderGeometry(.34, .34, 3.65, 40),
+          new T.MeshPhongMaterial({ color: 0x33485a, metalness: .78, shininess: 72 }));
         S.add(core);
-        for (var cw = 0; cw < 7; cw++) {
-          var winding = new T.Mesh(new T.TorusGeometry(.43, .045, 8, 32),
-            new T.MeshPhongMaterial({ color: 0xb97843, metalness: .72, shininess: 90 }));
-          winding.position.y = -1.15 + cw * .38;
-          winding.rotation.x = Math.PI / 2;
-          S.add(winding);
+        var solenoidPackMaterial = new T.MeshPhongMaterial({
+          color: 0x80664b, emissive: 0x140d06, specular: 0xbda17d,
+          metalness: .72, shininess: 68
+        });
+        var solenoidRimMaterial = new T.MeshPhongMaterial({
+          color: 0x9bb0bc, metalness: .82, shininess: 95
+        });
+        for (var cs = 0; cs < 6; cs++) {
+          var pack = new T.Mesh(new T.CylinderGeometry(.66, .66, .43, 48, 1, false),
+            solenoidPackMaterial);
+          pack.position.y = -1.42 + cs * .57;
+          S.add(pack);
+          var rimTop = new T.Mesh(new T.TorusGeometry(.66, .035, 8, 48), solenoidRimMaterial);
+          rimTop.position.y = pack.position.y + .205;
+          rimTop.rotation.x = Math.PI / 2;
+          S.add(rimTop);
+          var rimBottom = new T.Mesh(new T.TorusGeometry(.66, .035, 8, 48), solenoidRimMaterial);
+          rimBottom.position.y = pack.position.y - .205;
+          rimBottom.rotation.x = Math.PI / 2;
+          S.add(rimBottom);
         }
 
         // D-shaped superconducting coil housings: slimmer profile with a bright metal finish.
@@ -277,8 +291,8 @@
         var coilEdgeMaterial = new T.LineBasicMaterial({
           color: 0x42cfff, transparent: true, opacity: .58
         });
-        for (var c = 0; c < 10; c++) {
-          var coilAngle = c / 10 * Math.PI * 2;
+        for (var c = 0; c < 18; c++) {
+          var coilAngle = c / 18 * Math.PI * 2;
           var radialAxis = new T.Vector3(Math.cos(coilAngle), 0, Math.sin(coilAngle));
           var verticalAxis = new T.Vector3(0, 1, 0);
           var tangentAxis = new T.Vector3(-Math.sin(coilAngle), 0, Math.cos(coilAngle));
@@ -291,15 +305,40 @@
           S.add(coilEdge);
         }
 
-        // Subtle structural support rings above and below the coil set.
-        var supportMat = new T.MeshPhongMaterial({
-          color: 0x526477, metalness: .8, shininess: 90, transparent: true, opacity: .62
+        // Six horizontal poloidal-field coils shape and position the plasma.
+        var pfMaterial = new T.MeshPhongMaterial({
+          color: 0x526f82, emissive: 0x091722, specular: 0x9ebdcb,
+          metalness: .76, shininess: 82
         });
-        [-1.82, 1.82].forEach(function (yy) {
-          var support = new T.Mesh(new T.TorusGeometry(coilOuter - .08, .055, 10, 96), supportMat);
-          support.rotation.x = Math.PI / 2;
-          support.position.y = yy;
-          S.add(support);
+        var pfCoils = [
+          { y: -1.92, r: 3.62 }, { y: -1.28, r: 3.92 },
+          { y: -.64, r: 4.12 }, { y: .64, r: 4.12 },
+          { y: 1.28, r: 3.92 }, { y: 1.92, r: 3.62 }
+        ];
+        pfCoils.forEach(function (p) {
+          var pf = new T.Mesh(new T.TorusGeometry(p.r, .085, 12, 112), pfMaterial);
+          pf.rotation.x = Math.PI / 2;
+          pf.position.y = p.y;
+          S.add(pf);
+        });
+
+        // A faint open cylindrical cryostat envelope around the magnet assembly.
+        var cryostat = new T.Mesh(
+          new T.CylinderGeometry(4.32, 4.32, 4.95, 96, 1, true),
+          new T.MeshPhongMaterial({
+            color: 0x54748b, transparent: true, opacity: .065,
+            shininess: 105, side: T.DoubleSide, depthWrite: false
+          })
+        );
+        S.add(cryostat);
+        var cryostatRimMaterial = new T.MeshPhongMaterial({
+          color: 0x506d83, transparent: true, opacity: .38, metalness: .72, shininess: 90
+        });
+        [-2.48, 2.48].forEach(function (yy) {
+          var rim = new T.Mesh(new T.TorusGeometry(4.32, .065, 10, 112), cryostatRimMaterial);
+          rim.rotation.x = Math.PI / 2;
+          rim.position.y = yy;
+          S.add(rim);
         });
 
         var lineGroup = new T.Group(); S.add(lineGroup);
@@ -335,7 +374,7 @@
         rebuildFieldLines(ratio('field', .45));
 
         // Particles follow helical guiding-centre paths and a small gyro-orbit around them.
-        var count = 760, particlePos = new Float32Array(count * 3);
+        var count = 620, particlePos = new Float32Array(count * 3);
         var particleColors = new Float32Array(count * 3);
         var particleSeeds = seeded(241), phi0 = new Float32Array(count), theta0 = new Float32Array(count);
         var rho0 = new Float32Array(count), gyro0 = new Float32Array(count), gyroSize = new Float32Array(count);
@@ -372,7 +411,7 @@
           trailLines.push({ geometry: trailGeometry, array: trailArray, particle: Math.floor(tr / trailCount * count) });
         }
 
-        var hazeCount = 260, hazePos = new Float32Array(hazeCount * 3), hazeGeo = new T.BufferGeometry();
+        var hazeCount = 210, hazePos = new Float32Array(hazeCount * 3), hazeGeo = new T.BufferGeometry();
         var hazeSeeds = seeded(992), hazePhi = new Float32Array(hazeCount), hazeTheta = new Float32Array(hazeCount), hazeRho = new Float32Array(hazeCount);
         for (var hz = 0; hz < hazeCount; hz++) {
           hazePhi[hz] = (hazeSeeds() + 1) * Math.PI;
