@@ -1,7 +1,7 @@
 # MUKHTABAR — Project Status
 
 Last updated: 2026-11-25
-Current UI asset version: v24
+Current UI asset version: v25
 
 ## Repository
 - Code: https://github.com/abd7iz/aaa
@@ -16,7 +16,7 @@ Current UI asset version: v24
 3. Planetary orbit — numerical integration and procedural star/planet textures.
 4. Tokamak — educational visual model with 18 toroidal-field coils, six poloidal-field coils, six central-solenoid modules, cryostat envelope, plasma volume, particles and field lines. Not an MHD solver.
 5. Young double slit — dynamic wavefronts and calculated interference fringes; controls wavelength, slit separation and screen distance; readout includes fringe spacing.
-6. Electromagnetic induction generator — rotating copper coil between N/S poles, magnetic field lines, current-carrier indicators and sine-wave oscilloscope; controls field, coil area, turns, angular speed and resistance; readouts include flux linkage, instantaneous/peak emf and current.
+6. Electromagnetic induction generator — rotating copper coil between N/S poles, magnetic field lines, current-carrier indicators and sine-wave oscilloscope; controls field, coil area, turns, angular_speed and resistance; readouts include flux linkage, instantaneous/peak emf and current.
 7. Sinusoidal wave, pendulum and generated 3D scene engines.
 
 ## Double-slit experiment
