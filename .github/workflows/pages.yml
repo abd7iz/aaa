@@ -63,6 +63,30 @@ jobs:
           checker.feed(source)
           assert not checker.duplicates, f"Duplicate HTML IDs: {checker.duplicates}"
           assert checker.inline_scripts, "Inline JavaScript scripts not found"
+
+          # Every built-in created through createDefinition must declare a supported
+          # engine matching its registry ID. This prevents startup-wide failures
+          # caused by a missing/misspelled engine field.
+          engine_source = Path("simulation-engine.js").read_text(encoding="utf-8")
+          allowed_match = re.search(r"var engine = \[(.*?)\]\.indexOf\(raw\.engine\)", engine_source, re.S)
+          assert allowed_match, "Could not locate the simulation engine allow-list"
+          allowed_engines = set(re.findall(r"['\"]([a-z][a-z0-9_]*)['\"]", allowed_match.group(1)))
+          definitions = re.findall(
+              r"EXPS\.([A-Za-z0-9_]+)\s*=\s*window\.MUKHTABAR_ENGINE\.createDefinition\(\s*\{(.*?)\}\s*,\s*makeStage\s*,\s*addLights\s*\);",
+              source, re.S
+          )
+          assert definitions, "No built-in createDefinition experiments found"
+          seen_engines = set()
+          for experiment_id, definition_body in definitions:
+              engine_match = re.search(r"\bengine\s*:\s*['\"]([a-z][a-z0-9_]*)['\"]", definition_body)
+              assert engine_match, f"Built-in experiment {experiment_id} is missing its engine field"
+              engine_id = engine_match.group(1)
+              assert engine_id == experiment_id, f"Experiment {experiment_id} declares mismatched engine {engine_id}"
+              assert engine_id in allowed_engines, f"Experiment {experiment_id} uses unsupported engine {engine_id}"
+              assert f"EXPS.{experiment_id}.id = '{experiment_id}';" in source, f"Experiment {experiment_id} is missing its registry ID"
+              seen_engines.add(engine_id)
+          print(f"Validated {len(seen_engines)} built-in experiment engine declarations.")
+
           for experiment_id in ("tokamak", "wave", "pendulum"):
               assert f"EXPS.{experiment_id}.id = '{experiment_id}';" in source, f"Missing built-in experiment: {experiment_id}"
           for number, code in enumerate(checker.inline_scripts):
