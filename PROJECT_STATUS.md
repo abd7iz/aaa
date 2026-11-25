@@ -1,7 +1,7 @@
 # MUKHTABAR — Project Status
 
 Last updated: 2026-11-25
-Current UI asset version: v32
+Current UI asset version: v33
 
 ## Repository
 - Code: https://github.com/abd7iz/aaa
@@ -20,7 +20,8 @@ Current UI asset version: v32
 7. Fraunhofer diffraction grating — multiple parallel slits, dynamic wavefronts, calculated multi-slit intensity with finite-width slit envelope; controls wavelength, grating spacing, slit count, slit width and screen distance; readouts include first-order angle and highest possible order.
 8. Magnetic dipole — analytic dipole field lines, a sampled 2D vector-arrow map, animated direction tracers and movable probe showing |B|, Bx and By; controls magnetic moment, probe radius, probe angle and line count.
 9. Photoelectric effect — photon/electron visualization with threshold, maximum kinetic energy and stopping-voltage readouts.
-10. Sinusoidal wave, pendulum and generated 3D scene engines.
+10. Radioactive decay — stochastic nucleus lifetimes, visible remaining nuclei, radiation-event tracers and comparison with exponential expectation.
+11. Sinusoidal wave, pendulum and generated 3D scene engines.
 
 ## Physics models
 - Double slit: `I ∝ cos²(π d x / λL)`; defaults 550 nm, 0.25 mm separation and 1.5 m distance; expected fringe spacing 3.30 mm.
@@ -42,6 +43,13 @@ Current UI asset version: v32
 - Maximum kinetic energy: Kmax=max(0,Eγ−φ); numerical stopping potential equals Kmax in volts.
 - Photon wavelength controls energy; intensity controls emitted-electron count, not kinetic energy.
 - Assumptions: ideal surface with a single work function; electron energy distribution and surface details are not modelled.
+
+## Radioactive decay
+- Engine ID: decay
+- Defaults: half-life 6 s, 200 nuclei, simulation rate 1×.
+- Expected population: N(t)=N₀ exp(−λt), λ=ln(2)/T½.
+- Individual nucleus lifetimes are sampled from an exponential distribution; observed counts fluctuate around expected counts.
+- Visual tracers represent generic decay events, not a specific radiation type or isotope.
 
 ## Validation
 - CI parses all inline app scripts, simulation-engine.js, Worker and config.
