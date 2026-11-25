@@ -88,7 +88,8 @@ jobs:
             "} else if (spec.engine === 'diffraction') {",
             "} else if (spec.engine === 'wave') {",
             "} else if (spec.engine === 'pendulum') {",
-            "} else if (spec.engine === 'blackbody') {"
+            "} else if (spec.engine === 'blackbody') {",
+            "} else if (spec.engine === 'idealgas') {"
           ];
           for (const marker of branchMarkers) assert.ok(engineSource.includes(marker), "Missing simulation branch: " + marker);
           const sandbox = { window: {} };
@@ -238,7 +239,24 @@ jobs:
           assert.ok(peakValue > api.blackbodySpectrum(5800, sunPeak * 1.4));
           const power = api.stefanBoltzmannPower(5800, .01);
           assert.ok(power > 600000 && power < 650000);
-          console.log('Optics, atomic spectra, blackbody, dipole and radioactive/quantum physics checks passed.');
+          const idealgas = api.normalizeSpec({
+            schema: 'mukhtabar-sim-v1',
+            title: 'قانون الغاز المثالي',
+            field: 'physics',
+            engine: 'idealgas',
+            controls: []
+          });
+          assert.equal(idealgas.engine, 'idealgas');
+          assert.deepEqual(Array.from(idealgas.controls, c => c.key), ['temperature', 'amount', 'volume']);
+          assert.deepEqual(Array.from(idealgas.controls, c => c.value), [300, 0.1, 2.5]);
+          const gasDefault = api.idealGasState(300, 0.1, 2.5);
+          const gasDoubleTemp = api.idealGasState(600, 0.1, 2.5);
+          const gasDoubleVolume = api.idealGasState(300, 0.1, 5);
+          assert.ok(gasDefault.pressurePa > 99700 && gasDefault.pressurePa < 99900);
+          assert.ok(Math.abs(gasDoubleTemp.pressurePa / gasDefault.pressurePa - 2) < 1e-12);
+          assert.ok(Math.abs(gasDoubleVolume.pressurePa / gasDefault.pressurePa - .5) < 1e-12);
+          assert.ok(gasDefault.rmsSpeed > 510 && gasDefault.rmsSpeed < 520);
+          console.log('Optics, atomic spectra, blackbody, ideal-gas, dipole and decay physics/schema checks passed.');
           NODE
           node --check ai-worker/worker.js
           node --check ai-config.js
