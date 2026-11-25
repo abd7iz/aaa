@@ -930,7 +930,7 @@
             var phi = slot / 8 * Math.PI * 2 + level * .19;
             var pts = [];
             for (var step = 0; step <= 100; step++) {
-              var theta = .38 + (Math.PI - .76) * step / 100;
+              var theta = .8 + (Math.PI - 1.6) * step / 100;
               var radius = L * Math.sin(theta) * Math.sin(theta);
               pts.push(new T.Vector3(
                 radius * Math.sin(theta) * Math.cos(phi),
@@ -983,7 +983,7 @@
           for (var pi = 0; pi < tracerCount; pi++) {
             var line = lineDefinitions[pi % count];
             var u = (time * .10 + pi / tracerCount) % 1;
-            var theta = .38 + (Math.PI - .76) * u;
+            var theta = .8 + (Math.PI - 1.6) * u;
             var radius = line.L * Math.sin(theta) * Math.sin(theta);
             tracerVec.set(
               radius * Math.sin(theta) * Math.cos(line.phi),
