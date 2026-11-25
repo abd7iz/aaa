@@ -51,7 +51,7 @@
     if (!raw || typeof raw !== 'object' || raw.schema !== 'mukhtabar-sim-v1') {
       throw new Error('صيغة التجربة التي أنشأها الذكاء الاصطناعي غير معروفة.');
     }
-    var engine = ['tokamak', 'wave', 'pendulum', 'interference', 'induction', 'diffraction', 'dipole', 'polarization', 'photoelectric', 'decay', 'scene'].indexOf(raw.engine) >= 0 ? raw.engine : null;
+    var engine = ['tokamak', 'wave', 'pendulum', 'interference', 'induction', 'diffraction', 'dipole', 'polarization', 'photoelectric', 'decay', 'bohr', 'scene'].indexOf(raw.engine) >= 0 ? raw.engine : null;
     if (!engine) throw new Error('نوع المحاكاة غير مدعوم في محرك المختبر الحالي.');
     var field = FIELDS.indexOf(raw.field) >= 0 ? raw.field : 'physics';
     var used = {}, controls = [];
@@ -111,6 +111,10 @@
       ensure(defaultControl('half_life', 'عمر النصف', 2, 20, .5, 6, 's'));
       ensure(defaultControl('initial_atoms', 'عدد النوى الابتدائي', 50, 400, 10, 200, 'نواة'));
       ensure(defaultControl('rate', 'سرعة المحاكاة', .2, 3, .1, 1, '×'));
+    } else if (engine === 'bohr') {
+      ensure(defaultControl('atomic_number', 'العدد الذري Z', 1, 3, 1, 1, ''));
+      ensure(defaultControl('initial_level', 'المستوى الابتدائي nᵢ', 2, 6, 1, 3, ''));
+      ensure(defaultControl('final_level', 'المستوى النهائي n𝒇', 1, 6, 1, 2, ''));
     }
     if (!controls.length) controls.push(defaultControl('rate', 'معدل الحركة', .1, 3, .05, 1, '×'));
     if (controls.length > 7) controls = controls.slice(0, 7);
@@ -217,6 +221,22 @@
     return -Math.log(1 - u) * th / Math.LN2;
   };
 
+  ENGINE.bohrTransition = function (atomicNumber, initialLevel, finalLevel) {
+    var z = clamp(Math.round(finite(atomicNumber, 1)), 1, 3);
+    var ni = clamp(Math.round(finite(initialLevel, 3)), 1, 8);
+    var nf = clamp(Math.round(finite(finalLevel, 2)), 1, 8);
+    var delta = 13.605693 * z * z * Math.abs(1 / (nf * nf) - 1 / (ni * ni));
+    var emitted = ni > nf;
+    return {
+      atomicNumber: z,
+      initialLevel: ni,
+      finalLevel: nf,
+      energy: delta,
+      wavelength: delta > 0 ? 1239.841984 / delta : null,
+      type: emitted ? 'emission' : ni < nf ? 'absorption' : 'none'
+    };
+  };
+
   function paramsFrom(def, state) {
     var out = {};
     def.params.forEach(function (p) {
@@ -236,7 +256,7 @@
       id: 'generated',
       field: spec.field === 'biology' ? 'bio' : 'phy',
       fieldLabel: ({ physics: 'الفيزياء', biology: 'الأحياء', chemistry: 'الكيمياء', astronomy: 'الفلك', mathematics: 'الرياضيات' })[spec.field],
-      icon: spec.engine === 'tokamak' ? 'atom' : spec.engine === 'wave' ? 'activity' : spec.engine === 'pendulum' ? 'clock' : spec.engine === 'interference' ? 'waves' : spec.engine === 'induction' ? 'zap' : spec.engine === 'diffraction' ? 'scan-eye' : spec.engine === 'dipole' ? 'magnet' : spec.engine === 'polarization' ? 'sun' : spec.engine === 'photoelectric' ? 'zap' : spec.engine === 'decay' ? 'atom' : 'shapes',
+      icon: spec.engine === 'tokamak' ? 'atom' : spec.engine === 'wave' ? 'activity' : spec.engine === 'pendulum' ? 'clock' : spec.engine === 'interference' ? 'waves' : spec.engine === 'induction' ? 'zap' : spec.engine === 'diffraction' ? 'scan-eye' : spec.engine === 'dipole' ? 'magnet' : spec.engine === 'polarization' ? 'sun' : spec.engine === 'photoelectric' ? 'zap' : spec.engine === 'decay' ? 'atom' : spec.engine === 'bohr' ? 'orbit' : 'shapes',
       title: spec.title,
       short: spec.summary,
       spec: spec,
@@ -322,6 +342,17 @@
           rows.push(['النوى الباقية (مشاهدة)', decayObserved + ' / ' + decayTotal]);
           rows.push(['المتوقع إحصائياً', decay.expectedRemaining.toFixed(1) + ' نواة']);
           rows.push(['ثابت الاضمحلال λ', decay.decayConstant.toFixed(4) + ' s⁻¹']);
+        }
+        if (spec.engine === 'bohr') {
+          var transition = ENGINE.bohrTransition(
+            param(prm, 'atomic_number', 1),
+            param(prm, 'initial_level', 3),
+            param(prm, 'final_level', 2)
+          );
+          rows.push(['انتقال الإلكترون', transition.initialLevel + ' → ' + transition.finalLevel]);
+          rows.push(['فرق الطاقة', transition.energy.toFixed(4) + ' eV']);
+          rows.push(['الطول الموجي', transition.wavelength === null ? 'لا يوجد فوتون' : transition.wavelength.toFixed(2) + ' nm']);
+          rows.push(['نوع الانتقال', transition.type === 'emission' ? 'انبعاث' : transition.type === 'absorption' ? 'امتصاص' : 'لا انتقال']);
         }
         return rows;
       };
@@ -967,7 +998,111 @@
         updateModel(0);
         st.sph.r = 12;
         st.place();
-      } else if (spec.engine === 'decay') {
+      } else if (spec.engine === 'bohr') {
+        // Bohr hydrogen-like atom: energy levels scale as -13.6 Z²/n² eV.
+        var orbitGroup = new T.Group();
+        S.add(orbitGroup);
+        var orbitMaterials = [
+          new T.MeshBasicMaterial({ color: 0x526f86, transparent: true, opacity: .22 }),
+          new T.MeshBasicMaterial({ color: 0x4aa7c7, transparent: true, opacity: .36 })
+        ];
+        var orbitRadii = [];
+        for (var n = 1; n <= 6; n++) {
+          var orbitRadius = .28 + n * n * .072;
+          orbitRadii[n] = orbitRadius;
+          var orbit = new T.Mesh(new T.TorusGeometry(orbitRadius, .012, 7, 80), orbitMaterials[n % 2]);
+          orbit.rotation.x = Math.PI / 2;
+          orbitGroup.add(orbit);
+        }
+
+        var nucleusMat = new T.MeshPhongMaterial({
+          color: 0xd97757, emissive: 0x4a1409, shininess: 88
+        });
+        var nucleus = new T.Mesh(new T.SphereGeometry(.22, 28, 20), nucleusMat);
+        S.add(nucleus);
+        var nucleusGlow = new T.PointLight(0xff9867, .85, 4);
+        S.add(nucleusGlow);
+
+        var electron = new T.Mesh(new T.SphereGeometry(.105, 22, 16),
+          new T.MeshPhongMaterial({ color: 0x57dfff, emissive: 0x0a6a89, emissiveIntensity: 1.1, shininess: 100 }));
+        S.add(electron);
+        var electronGlow = new T.PointLight(0x50dfff, .65, 2.5);
+        S.add(electronGlow);
+
+        var photonMat = new T.MeshBasicMaterial({
+          color: 0xffd166, transparent: true, opacity: .95,
+          blending: T.AdditiveBlending, depthWrite: false
+        });
+        var photon = new T.Mesh(new T.SphereGeometry(.09, 18, 14), photonMat);
+        S.add(photon);
+        var photonTrail = new T.Mesh(new T.CylinderGeometry(.018, .018, .55, 8),
+          new T.MeshBasicMaterial({ color: 0xffd166, transparent: true, opacity: .5, blending: T.AdditiveBlending, depthWrite: false }));
+        S.add(photonTrail);
+
+        function spectrumColor(wavelength) {
+          if (wavelength === null || wavelength < 380) return new T.Color(0x9a8cff);
+          if (wavelength < 450) return new T.Color(0x6a8dff);
+          if (wavelength < 495) return new T.Color(0x4dd7ff);
+          if (wavelength < 570) return new T.Color(0x63f0a0);
+          if (wavelength < 590) return new T.Color(0xffe16b);
+          if (wavelength < 625) return new T.Color(0xffa34b);
+          if (wavelength < 750) return new T.Color(0xff5e55);
+          return new T.Color(0xff4a9a);
+        }
+        var transitionSignature = '';
+        var currentTransition = null;
+        updateModel = function () {
+          var z = param(prm, 'atomic_number', 1);
+          var ni = Math.round(param(prm, 'initial_level', 3));
+          var nf = Math.round(param(prm, 'final_level', 2));
+          var signature = z + '|' + ni + '|' + nf;
+          if (signature !== transitionSignature) {
+            transitionSignature = signature;
+            currentTransition = ENGINE.bohrTransition(z, ni, nf);
+            photonMat.color.copy(spectrumColor(currentTransition.wavelength));
+            photonTrail.material.color.copy(spectrumColor(currentTransition.wavelength));
+          }
+          var cycleTime = 5;
+          var cycle = time % cycleTime;
+          var jumpTime = Math.floor(time / cycleTime) * cycleTime + 2.5;
+          var angleAtJump = jumpTime * 1.25;
+          var angle = time * 1.25;
+          var electronLevel = cycle < 2.5 ? ni : nf;
+          var electronRadius = orbitRadii[clamp(electronLevel, 1, 6)];
+          electron.position.set(
+            electronRadius * Math.cos(angle),
+            .06,
+            electronRadius * Math.sin(angle)
+          );
+          electronGlow.position.copy(electron.position);
+
+          var hasPhoton = currentTransition.type !== 'none' && cycle >= 2.5 && cycle < 4.8;
+          if (hasPhoton) {
+            var photonAge = cycle - 2.5;
+            var direction = currentTransition.type === 'emission' ? 1 : -1;
+            var baseLevelRadius = currentTransition.type === 'emission'
+              ? orbitRadii[ni] : orbitRadii[nf];
+            var photonRadius = direction > 0
+              ? baseLevelRadius + photonAge * 1.05
+              : baseLevelRadius + (2.3 - photonAge) * 1.05;
+            var px = photonRadius * Math.cos(angleAtJump);
+            var pz = photonRadius * Math.sin(angleAtJump);
+            photon.visible = true;
+            photon.position.set(px, .08, pz);
+            photonTrail.visible = true;
+            photonTrail.position.set(px * .78, .08, pz * .78);
+            photonTrail.rotation.z = -angleAtJump;
+            photonTrail.rotation.x = Math.PI / 2;
+          } else {
+            photon.visible = false;
+            photonTrail.visible = false;
+          }
+        };
+        resetModel = function () { time = 0; updateModel(0); };
+        updateModel(0);
+        st.sph.r = 9.8;
+        st.place();
+
         // Statistical radioactive decay: individual lifetimes are sampled exponentially.
         var maxAtoms = 400;
         var atomBase = new Float32Array(maxAtoms * 3);
@@ -1882,6 +2017,7 @@
           if (spec.engine === 'polarization') return 'يخرج الضوء غير المستقطب من المرشح الأول مستقطباً خطياً، ثم يمر عبر محلل دوار. تحكم قانون مالوس الشدة بعد المحلل: I = I₁ cos²(θ)، حيث θ زاوية المحورين. عند 0° أو 180° يكون النفاذ أعظمياً، وعند 90° ينعدم الضوء المثالي. النموذج يعرض مرشحين مثاليين ولا يحسب الامتصاص أو الانعكاسات أو الاستقطاب الجزئي.';
           if (spec.engine === 'photoelectric') return 'حسب معادلة أينشتاين للتأثير الكهروضوئي: Eγ = hc/λ، وKmax = max(0, Eγ − φ). إذا كانت طاقة الفوتون أقل من دالة الشغل φ فلا يحدث انبعاث مهما زادت شدة الضوء. عند تجاوز العتبة، تغيّر الشدة عدد الإلكترونات المنبعثة بينما يحدد التردد طاقتها الحركية القصوى. جهد الإيقاف العددي يساوي Kmax بوحدة الفولت عندما تقاس الطاقة بالإلكترون فولت. النموذج مثالي ولا يحسب توزيع طاقات الإلكترونات أو تفاصيل سطح المعدن.';
           if (spec.engine === 'decay') return 'يصف الاضمحلال الإشعاعي قانوناً إحصائياً: N(t)=N₀e^(−λt)، حيث λ=ln(2)/T½. كل نواة لها زمن اضمحلال عشوائي موزع أُسياً؛ لذلك قد يختلف العدد المشاهد عن المنحنى المتوقع، خصوصاً في العينات الصغيرة. زد عدد النوى لملاحظة تقارب النتيجة من المنحنى الإحصائي. هذا نموذج تعليمي لا يحدد مادة مشعة بعينها أو نشاطاً عملياً.';
+          if (spec.engine === 'bohr') return 'في نموذج بور للأيونات الشبيهة بالهيدروجين تكون طاقة المستوى En = −13.6 Z²/n² eV. عند الانتقال بين مستويين تتغير طاقة الذرة بمقدار ΔE = 13.6 Z²|1/nf² − 1/ni²|، وتُحمل هذه الطاقة بفوتون طوله الموجي λ = hc/ΔE. هذا نموذج مبسط، ولا يصف الذرات متعددة الإلكترونات أو البنية الدقيقة للخطوط الطيفية.';
           return spec.assumptions || spec.principle || spec.summary;
         },
         dispose: function () { st.dispose(); }
