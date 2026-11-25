@@ -108,7 +108,7 @@ input[type=range]{width:100%;direction:ltr;accent-color:var(--ac);height:28px}
 <script>window.MUKHTABAR_CONFIG={AI_ENDPOINT:window.MUKHTABAR_AI_ENDPOINT||""};</script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/lucide@0.469.0/dist/umd/lucide.min.js"></script>
-<script src="./simulation-engine.js?v=37"></script>
+<script src="./simulation-engine.js?v=38"></script>
 <script>
 (function(){
 'use strict';
@@ -906,6 +906,24 @@ EXPS.bohr = window.MUKHTABAR_ENGINE.createDefinition({
 }, makeStage, addLights);
 EXPS.bohr.id = 'bohr';
 
+/* ===== Planck blackbody radiation spectrum ===== */
+EXPS.blackbody = window.MUKHTABAR_ENGINE.createDefinition({
+  schema: 'mukhtabar-sim-v1',
+  title: 'إشعاع الجسم الأسود — قانون بلانك',
+  field: 'physics',
+  engine: 'blackbody',
+  summary: 'غيّر درجة الحرارة وشاهد كيف يتغير منحنى الطيف وتنتقل قمة الإشعاع.',
+  objective: 'ربط درجة حرارة الجسم الأسود بتوزيع الطاقة الطيفية وطول موجة القمة والقدرة المشعة.',
+  principle: 'يصف قانون بلانك شدة الإشعاع عند كل طول موجي. تنتقل القمة وفق قانون فين، وتتناسب القدرة الكلية مع القوة الرابعة لدرجة الحرارة.',
+  formula: 'Bλ = 2hc²/[λ⁵(exp(hc/λkT)−1)]   ·   λmax T = 2.8978×10⁶ nm·K',
+  assumptions: 'باعث مثالي بمعامل انبعاث يساوي واحداً. يُعرض منحنى نسبي ضمن 100–2400 nm، والقدرة الكلية لمساحة السطح المحددة.',
+  controls: [
+    { key: 'temperature', label: 'درجة حرارة الجسم', min: 1800, max: 12000, step: 100, value: 5800, unit: 'K' },
+    { key: 'surface_area', label: 'مساحة السطح المشع', min: .001, max: .05, step: .001, value: .01, unit: 'm²' }
+  ]
+}, makeStage, addLights);
+EXPS.blackbody.id = 'blackbody';
+
 /* ---------- Demo interpreter / AI backend ---------- */
 function normText(s){
   return String(s).replace(/[٠-٩]/g,function(d){return '٠١٢٣٤٥٦٧٨٩'.indexOf(d);}).replace(/[۰-۹]/g,function(d){return '۰۱۲۳۴۵۶۷۸۹'.indexOf(d);}).toLowerCase();
@@ -923,6 +941,7 @@ function demoInterpret(text){
   if(/(ميتوز|انقسام|خلي|كروموسوم|mitosis|cell|division|chromosom)/.test(t))id='mitosis';
   else if(/(تداخل|شقين|شق يونغ|يونغ|double.?slit|interference)/.test(t))id='interference';
   else if(/(حيود|محزوز|شبكة حيود|grating|diffraction)/.test(t))id='diffraction';
+  else if(/(جسم أسود|اشعاع الجسم الاسود|إشعاع الجسم الأسود|بلانك|قانون بلانك|blackbody|black body|planck)/.test(t))id='blackbody';
   else if(/(بور|نموذج بور|طيف الذرة|طيف ذري|مستويات الطاقة|ذرة هيدروجين|bohr|atomic spectrum|hydrogen spectrum)/.test(t))id='bohr';
   else if(/(اضمحلال|عمر النصف|تحلل نووي|نصف العمر|radioactive decay|half.?life)/.test(t))id='decay';
   else if(/(كهروضوئي|فوتوالكتر|تأثير ضوئي|دالة الشغل|photoelectric|photo.?electric)/.test(t))id='photoelectric';
@@ -956,8 +975,8 @@ async function aiGenerate(prompt){
   try{
     var requestPrompt=[
       'أنت مهندس يبني تجارب علمية تفاعلية لمختبر MUKHTABAR. أخرج إعداداً قابلاً للتشغيل بصيغة JSON فقط.',
-      'إذا كان الطلب يطابق تجربة جاهزة في المختبر فاخترها مباشرة بصيغة {"kind":"builtin","experimentId":"id","params":{},"note":""}. التجارب الجاهزة: mitosis, projectile, orbit, tokamak, wave, pendulum, interference, induction, diffraction, dipole, polarization, photoelectric, decay, bohr. لا تعِد بناء تجربة جاهزة كمشهد عام. إذا كان الطلب ظاهرة جديدة غير موجودة فأنشئ تجربة جديدة بصيغة {"kind":"generated","experiment":{...}}.',
-      'مخطط التجربة الجديدة: {"schema":"mukhtabar-sim-v1","title":"اسم عربي","field":"physics|biology|chemistry|astronomy|mathematics","engine":"tokamak|wave|pendulum|interference|induction|diffraction|dipole|polarization|photoelectric|decay|bohr|scene","summary":"وصف قصير","objective":"هدف التجربة","principle":"شرح المبدأ العلمي","formula":"معادلة قصيرة أو فارغ","assumptions":"حدود النموذج","controls":[{"key":"amplitude","label":"السعة","min":0.2,"max":2.5,"step":0.05,"value":1,"unit":"m","description":"تأثير المتغير"}],"objects":[{"type":"sphere|box|cylinder|torus|ring|cone|icosahedron","label":"اسم العنصر","color":"#38bdf8","emissive":"#082e59","position":[0,0,0],"scale":[1,1,1],"rotation":[0,0,0],"motion":{"type":"none|orbit|rotate|pulse|swing|helix","speed":1,"radius":2,"amplitude":0.5,"axis":"x|y|z","control":"amplitude"}}]}',
+      'إذا كان الطلب يطابق تجربة جاهزة في المختبر فاخترها مباشرة بصيغة {"kind":"builtin","experimentId":"id","params":{},"note":""}. التجارب الجاهزة: mitosis, projectile, orbit, tokamak, wave, pendulum, interference, induction, diffraction, dipole, polarization, photoelectric, decay, bohr, blackbody. لا تعِد بناء تجربة جاهزة كمشهد عام. إذا كان الطلب ظاهرة جديدة غير موجودة فأنشئ تجربة جديدة بصيغة {"kind":"generated","experiment":{...}}.',
+      'مخطط التجربة الجديدة: {"schema":"mukhtabar-sim-v1","title":"اسم عربي","field":"physics|biology|chemistry|astronomy|mathematics","engine":"tokamak|wave|pendulum|interference|induction|diffraction|dipole|polarization|photoelectric|decay|bohr|blackbody|scene","summary":"وصف قصير","objective":"هدف التجربة","principle":"شرح المبدأ العلمي","formula":"معادلة قصيرة أو فارغ","assumptions":"حدود النموذج","controls":[{"key":"amplitude","label":"السعة","min":0.2,"max":2.5,"step":0.05,"value":1,"unit":"m","description":"تأثير المتغير"}],"objects":[{"type":"sphere|box|cylinder|torus|ring|cone|icosahedron","label":"اسم العنصر","color":"#38bdf8","emissive":"#082e59","position":[0,0,0],"scale":[1,1,1],"rotation":[0,0,0],"motion":{"type":"none|orbit|rotate|pulse|swing|helix","speed":1,"radius":2,"amplitude":0.5,"axis":"x|y|z","control":"amplitude"}}]}',
       'tokamak: صمّم حجرة حلقية تشبه جهاز توكاماك، وبلازما متوهجة، ملفات مغناطيسية، خطوط مجال ثلاثية الأبعاد وجسيمات مشحونة. مفاتيح التحكم field بوحدة T وtemperature بوحدة keV وdensity بوحدة ×10¹⁹ م⁻³. صرّح بأنه نموذج توضيحي وليس حلاً لمعادلات MHD.',
       'wave: موجة جيبية متحركة، وتحكم amplitude وfrequency وspeed.',
       'pendulum: بندول بسيط يتحرك بالجاذبية، وتحكم length وgravity وangle وdamping.',
@@ -969,6 +988,7 @@ async function aiGenerate(prompt){
        'photoelectric: تجربة التأثير الكهروضوئي على سطح معدني. استخدم wavelength بالنانو متر وwork_function بالإلكترون فولت وintensity بالنسبة المئوية. احسب Eγ=1239.841984/λ eV وKmax=max(0,Eγ−φ)، وجهد الإيقاف يساوي Kmax بالفولت. أظهر فوتونات وإلكترونات متحركة، وإذا كانت الطاقة أقل من دالة الشغل فلا تُظهر إلكترونات منبعثة. الشدة تؤثر في العدد لا في طاقة الإلكترون.',
        'decay: نموذج اضمحلال إحصائي لعدد من النوى المستقلة. استخدم half_life بالثواني وinitial_atoms كعدد صحيح وrate لسرعة الزمن. احسب التوقع N(t)=N0 exp(−ln(2)t/T_half)، وعيّن أزمنة اضمحلال فردية من التوزيع الأسي. أظهر النوى الباقية وأحداث الاضمحلال، وصرّح أن الجسيمات البصرية تمثيل تعليمي وليست نوع إشعاع محدداً.',
        'bohr: نموذج بور لأيون شبيه بالهيدروجين. استخدم atomic_number بين 1 و3 وinitial_level وfinal_level كأعداد صحيحة. احسب ΔE=13.605693 Z² |1/nf²−1/ni²| eV وλ=1239.841984/ΔE nm، وميّز انبعاث الفوتون إذا ni>nf وامتصاصه إذا ni<nf. اذكر حدود نموذج بور وعدم انطباقه التفصيلي على الذرات متعددة الإلكترونات.',
+       'blackbody: مشهد جسم أسود ومنحنى طيف بلانك. استخدم temperature بوحدة K وsurface_area بوحدة m². احسب λmax=2.897771955e6/T nm، والقدرة P=σAT⁴. احسب منحنى بلانك Bλ=2hc²/[λ⁵(exp(hc/λkT)-1)] ضمن 100 إلى 2400 nm، وصرّح بفرضية الباعث المثالي.',
        'scene: كوّن مشهداً ثلاثي الأبعاد مفهوماً من 2 إلى 8 عناصر مترابطة، مع حركات ذات معنى وليس كرات عشوائية.',
       'أضف 3 إلى 6 متغيرات فقط وبحد أقصى 7. لا تستخدم HTML أو JavaScript أو روابط أو كوداً. لا تخترع قياسات، وصرّح بحدود الدقة عند الحاجة.',
       'أعد JSON صالحاً فقط بلا Markdown أو شرح خارجي.',
@@ -1025,7 +1045,7 @@ function viewHome(){
 }
 
 function viewCreate(){
-  var ex=['محاكاة ثلاثية الأبعاد للانقسام المتساوي مع التحكم بالمراحل','مقذوف بزاوية 60 درجة وسرعة 30 على القمر','مدار كوكب حول نجم كتلته 2','توكاماك ثلاثي الأبعاد لاحتواء البلازما مغناطيسياً','تجربة شقي يونغ للتداخل الضوئي مع التحكم بالطول الموجي والمسافة بين الشقين وبعد الشاشة','مولد كهربائي بملف نحاسي دوار بين قطبي مغناطيس مع عرض الجهد المستحث','محزوز حيود بخمسة شقوق لإظهار طيف الرتب المضيئة وتغيير الطول الموجي والتباعد والعرض','مغناطيس قضبي وخطوط مجال ثنائي القطب مع مجس يقيس المجال حسب بعده وزاويته','تجربة استقطاب الضوء بمرشحين دوارين وتحكم بالزاوية والطول الموجي وشدة المصدر','التأثير الكهروضوئي على سطح معدني مع تغيير تردد الضوء ودالة الشغل وشدة المصدر','اضمحلال إشعاعي لعينة من 200 نواة مع تغيير عمر النصف ومراقبة العدد الباقي مع الزمن','طيف ذرة الهيدروجين بنموذج بور مع انتقال الإلكترون بين المستويات وحساب طول موجة الفوتون','موجة مستعرضة مع التحكم بالسعة والتردد وسرعة الانتشار','بندول مع تغيير الطول والجاذبية والتخميد'];
+  var ex=['محاكاة ثلاثية الأبعاد للانقسام المتساوي مع التحكم بالمراحل','مقذوف بزاوية 60 درجة وسرعة 30 على القمر','مدار كوكب حول نجم كتلته 2','توكاماك ثلاثي الأبعاد لاحتواء البلازما مغناطيسياً','تجربة شقي يونغ للتداخل الضوئي مع التحكم بالطول الموجي والمسافة بين الشقين وبعد الشاشة','مولد كهربائي بملف نحاسي دوار بين قطبي مغناطيس مع عرض الجهد المستحث','محزوز حيود بخمسة شقوق لإظهار طيف الرتب المضيئة وتغيير الطول الموجي والتباعد والعرض','مغناطيس قضبي وخطوط مجال ثنائي القطب مع مجس يقيس المجال حسب بعده وزاويته','تجربة استقطاب الضوء بمرشحين دوارين وتحكم بالزاوية والطول الموجي وشدة المصدر','التأثير الكهروضوئي على سطح معدني مع تغيير تردد الضوء ودالة الشغل وشدة المصدر','اضمحلال إشعاعي لعينة من 200 نواة مع تغيير عمر النصف ومراقبة العدد الباقي مع الزمن','طيف ذرة الهيدروجين بنموذج بور مع انتقال الإلكترون بين المستويات وحساب طول موجة الفوتون','إشعاع الجسم الأسود: غيّر درجة الحرارة وشاهد منحنى بلانك وطول موجة القمة والقدرة المشعة','موجة مستعرضة مع التحكم بالسعة والتردد وسرعة الانتشار','بندول مع تغيير الطول والجاذبية والتخميد'];
   var ai=!!CFG.AI_ENDPOINT;
   view.innerHTML='<div class="page"><h1>تجربة جديدة</h1><p class="mut">اكتب ما تريد استكشافه.</p>'+
    (ai?'<div class="banner ok">'+ic('circle-check')+'<span>الذكاء الاصطناعي مفعّل: ينشئ محاكاة جديدة أو يضبط تجربة موجودة، مع مشهد ثلاثي الأبعاد وأدوات تحكم وشرح علمي.</span></div>'
