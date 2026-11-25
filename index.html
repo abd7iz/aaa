@@ -71,12 +71,14 @@ textarea.inp{min-height:120px;resize:vertical}
 .tab{flex:1;padding:9px;border-radius:12px;border:1px solid var(--line);background:transparent;color:var(--mut);cursor:pointer;font-weight:600}
 .tab.on{background:var(--s2);color:var(--tx);border-color:rgba(56,189,248,.5)}
 .panel{flex:1;min-height:0;overflow-y:auto;padding:12px 12px 24px}
-.viewer.immersive{position:fixed;inset:0;z-index:90;height:100dvh;height:var(--vh,100vh);padding-top:calc(var(--tg-top) + env(safe-area-inset-top,0px));padding-bottom:env(safe-area-inset-bottom,0px);background:var(--bg)}
-.viewer.immersive .vhead{flex:0 0 auto}
-.viewer.immersive .stage{flex:0 0 55%;min-height:220px;max-height:60%;margin:0 9px}
-.viewer.immersive .tabs{flex:0 0 auto}
-.viewer.immersive .panel{flex:1;min-height:0;padding-bottom:calc(18px + var(--tg-bottom))}
-@media(max-height:650px){.viewer.immersive .stage{flex-basis:48%;min-height:170px}.viewer.immersive .vhead{padding-top:4px;padding-bottom:4px}}
+.viewer.immersive{position:fixed;inset:0;z-index:90;width:100vw;height:100dvh;height:var(--vh,100vh);padding:0;margin:0;overflow:hidden;background:#050914}
+.viewer.immersive .vhead{position:fixed;inset:0 0 auto;z-index:96;display:flex;justify-content:flex-end;align-items:flex-start;padding:calc(env(safe-area-inset-top,0px) + 10px) calc(env(safe-area-inset-right,0px) + 10px) 0 10px;pointer-events:none}
+.viewer.immersive .vhead>*:not(#focusBtn){display:none!important}
+.viewer.immersive #focusBtn{pointer-events:auto;width:42px;height:42px;min-width:42px;padding:0;border-radius:50%;justify-content:center;background:rgba(8,15,30,.78);border:1px solid rgba(255,255,255,.28);backdrop-filter:blur(10px);box-shadow:0 3px 18px rgba(0,0,0,.35)}
+.viewer.immersive #focusBtn span{display:none}
+.viewer.immersive .stage{position:absolute;inset:0;z-index:91;display:block;width:100%;height:100%;min-height:0;max-height:none;flex:none;margin:0;border:0;border-radius:0;overflow:hidden}
+.viewer.immersive .stage canvas.gl{width:100%;height:100%;touch-action:pan-y}
+.viewer.immersive .tabs,.viewer.immersive .panel{display:none!important}
 .guide-card{margin:0 0 16px;padding:12px;border:1px solid var(--line);border-radius:15px;background:linear-gradient(145deg,rgba(56,189,248,.07),rgba(139,92,246,.06))}
 .guide-title{font-size:14px;font-weight:700;margin-bottom:8px;color:var(--tx)}
 .guide-card svg{display:block;width:100%;height:auto;max-height:190px;background:rgba(3,8,18,.36);border-radius:11px}
@@ -121,7 +123,7 @@ input[type=range]{width:100%;direction:ltr;accent-color:var(--ac);height:28px}
 <script>window.MUKHTABAR_CONFIG={AI_ENDPOINT:window.MUKHTABAR_AI_ENDPOINT||""};</script>
 <script async src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
 <script async src="https://cdn.jsdelivr.net/npm/lucide@0.469.0/dist/umd/lucide.min.js" onload="if(window.MUKHTABAR_REFRESH_ICONS)window.MUKHTABAR_REFRESH_ICONS()"></script>
-<script src="./simulation-engine.js?v=52"></script>
+<script src="./simulation-engine.js?v=53"></script>
 <script>
 (function(){
 'use strict';
