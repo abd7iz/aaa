@@ -2239,6 +2239,11 @@
         S.add(pressureGlow);
 
         var gasCountBuilt = 0, gasHeight = 2.0;
+        function normalGasComponent() {
+          var u1 = clamp((velocitySeeds() + 1) * .5, .000001, .999999);
+          var u2 = clamp((velocitySeeds() + 1) * .5, .000001, .999999);
+          return Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * u2);
+        }
         function gasHeightFromVolume(volumeL) {
           return .72 + (clamp(volumeL, .5, 5) - .5) / 4.5 * 2.82;
         }
@@ -2252,14 +2257,9 @@
             particlePositions[pi * 3 + 1] = vesselBottom + .12 + (particleSeeds() + 1) * .5 * Math.max(.1, gasHeight - .24);
             particlePositions[pi * 3 + 2] = radius * Math.sin(phi);
             // Maxwell-Boltzmann gas velocities: independent Gaussian Cartesian components.
-            function normalSample() {
-              var u1 = clamp((velocitySeeds() + 1) * .5, .000001, .999999);
-              var u2 = clamp((velocitySeeds() + 1) * .5, .000001, .999999);
-              return Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * u2);
-            }
-            particleVelocity[pi * 3] = normalSample() / Math.sqrt(3);
-            particleVelocity[pi * 3 + 1] = normalSample() / Math.sqrt(3);
-            particleVelocity[pi * 3 + 2] = normalSample() / Math.sqrt(3);
+            particleVelocity[pi * 3] = normalGasComponent() / Math.sqrt(3);
+            particleVelocity[pi * 3 + 1] = normalGasComponent() / Math.sqrt(3);
+            particleVelocity[pi * 3 + 2] = normalGasComponent() / Math.sqrt(3);
           }
           gasCountBuilt = count;
           gasGeometry.attributes.position.needsUpdate = true;
