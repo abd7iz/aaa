@@ -1,7 +1,7 @@
 # MUKHTABAR — Project Status
 
 Last updated: 2026-11-25
-Current UI asset version: v29
+Current UI asset version: v30
 
 ## Repository
 - Code: https://github.com/abd7iz/aaa
