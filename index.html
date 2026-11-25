@@ -108,10 +108,18 @@ input[type=range]{width:100%;direction:ltr;accent-color:var(--ac);height:28px}
 <script>window.MUKHTABAR_CONFIG={AI_ENDPOINT:window.MUKHTABAR_AI_ENDPOINT||""};</script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/lucide@0.469.0/dist/umd/lucide.min.js"></script>
-<script src="./simulation-engine.js?v=13"></script>
+<script src="./simulation-engine.js?v=14"></script>
 <script>
 (function(){
 'use strict';
+function showRuntimeFailure(){
+  var root=document.getElementById('view');
+  if(!root||window.__MUKHTABAR_FATAL_SHOWN)return;
+  window.__MUKHTABAR_FATAL_SHOWN=true;
+  root.innerHTML='<div class="page"><div class="banner"><b>توقف تشغيل جزء من المختبر.</b><br>أعد تحميل الصفحة. إذا تكرر الخطأ، أرسل لقطة الشاشة للدعم.</div><button class="btn primary" onclick="location.reload()">إعادة تحميل المختبر</button></div>';
+}
+window.addEventListener('error',function(e){if(e&&e.error)showRuntimeFailure();});
+window.addEventListener('unhandledrejection',function(){showRuntimeFailure();});
 var CFG=window.MUKHTABAR_CONFIG||{AI_ENDPOINT:''};
 var tg=(window.Telegram&&window.Telegram.WebApp)||null;
 var inTG=!!(tg&&tg.initData);
