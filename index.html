@@ -108,7 +108,7 @@ input[type=range]{width:100%;direction:ltr;accent-color:var(--ac);height:28px}
 <script>window.MUKHTABAR_CONFIG={AI_ENDPOINT:window.MUKHTABAR_AI_ENDPOINT||""};</script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/lucide@0.469.0/dist/umd/lucide.min.js"></script>
-<script src="./simulation-engine.js?v=21"></script>
+<script src="./simulation-engine.js?v=22"></script>
 <script>
 (function(){
 'use strict';
@@ -693,6 +693,25 @@ EXPS.orbit={
   };
  }
 };
+/* ===== Young's double-slit experiment ===== */
+EXPS.interference = window.MUKHTABAR_ENGINE.createDefinition({
+  schema: 'mukhtabar-sim-v1',
+  title: 'تجربة الشقين — تداخل الضوء',
+  field: 'physics',
+  engine: 'interference',
+  summary: 'شاهد كيف تتكون الأهداب المضيئة والمعتمة من تراكب موجتين ضوئيتين.',
+  objective: 'ربط الطول الموجي والمسافة بين الشقين وبعد الشاشة بالمسافة بين أهداب التداخل.',
+  principle: 'تتراكب موجتان مترابطتان قادمتان من شقين، فتتعزز الإضاءة عند التوافق وتضعف عند التعارض.',
+  formula: 'Δy = λL/d   ·   I ∝ cos²(πdx/λL)',
+  assumptions: 'ضوء أحادي اللون ومترابط، شقان مثاليان، وتقريب المجال البعيد. لا يتضمن النموذج غلاف حيود عرض الشق.',
+  controls: [
+    { key: 'wavelength', label: 'الطول الموجي للضوء', min: 380, max: 700, step: 5, value: 550, unit: 'nm' },
+    { key: 'separation', label: 'المسافة بين الشقين', min: .1, max: .6, step: .01, value: .25, unit: 'mm' },
+    { key: 'distance', label: 'بعد الشاشة', min: .5, max: 2.5, step: .05, value: 1.5, unit: 'm' }
+  ]
+}, makeStage, addLights);
+EXPS.interference.id = 'interference';
+
 /* ---------- Demo interpreter / AI backend ---------- */
 function normText(s){
   return String(s).replace(/[٠-٩]/g,function(d){return '٠١٢٣٤٥٦٧٨٩'.indexOf(d);}).replace(/[۰-۹]/g,function(d){return '۰۱۲۳۴۵۶۷۸۹'.indexOf(d);}).toLowerCase();
@@ -708,6 +727,7 @@ function clampParams(expId,raw,notes){
 function demoInterpret(text){
   var t=normText(text),id=null;
   if(/(ميتوز|انقسام|خلي|كروموسوم|mitosis|cell|division|chromosom)/.test(t))id='mitosis';
+  else if(/(تداخل|شقين|شق يونغ|يونغ|double.?slit|interference)/.test(t))id='interference';
   else if(/(مقذوف|قذيف|قذف|رمي|اطلاق|إطلاق|مدفع|كرة|projectile|launch|cannon|ball|trajectory)/.test(t))id='projectile';
   else if(/(مدار|كوكب|شمس|كبلر|جاذبي|فلك|orbit|planet|kepler|gravit|solar)/.test(t))id='orbit';
   if(!id)return null;
