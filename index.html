@@ -108,7 +108,7 @@ input[type=range]{width:100%;direction:ltr;accent-color:var(--ac);height:28px}
 <script>window.MUKHTABAR_CONFIG={AI_ENDPOINT:window.MUKHTABAR_AI_ENDPOINT||""};</script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/lucide@0.469.0/dist/umd/lucide.min.js"></script>
-<script src="./simulation-engine.js?v=24"></script>
+<script src="./simulation-engine.js?v=25"></script>
 <script>
 (function(){
 'use strict';
@@ -727,7 +727,7 @@ EXPS.induction = window.MUKHTABAR_ENGINE.createDefinition({
     { key: 'field', label: 'شدة المجال المغناطيسي', min: .1, max: 2, step: .05, value: .8, unit: 'T' },
     { key: 'area', label: 'مساحة الملف', min: .01, max: .1, step: .005, value: .04, unit: 'm²' },
     { key: 'turns', label: 'عدد لفات الملف', min: 10, max: 200, step: 5, value: 100, unit: 'لفة' },
-    { key: 'angularSpeed', label: 'السرعة الزاوية', min: 1, max: 30, step: .5, value: 12, unit: 'rad/s' },
+    { key: 'angular_speed', label: 'السرعة الزاوية', min: 1, max: 30, step: .5, value: 12, unit: 'rad/s' },
     { key: 'resistance', label: 'مقاومة الدائرة', min: .5, max: 20, step: .5, value: 4, unit: 'Ω' }
   ]
 }, makeStage, addLights);
@@ -780,7 +780,7 @@ async function aiGenerate(prompt){
       'wave: موجة جيبية متحركة، وتحكم amplitude وfrequency وspeed.',
       'pendulum: بندول بسيط يتحرك بالجاذبية، وتحكم length وgravity وangle وdamping.',
       'interference: تجربة شقي يونغ: الشاشة تعرض أهداب تداخل مضيئة ومعتمة محسوبة من wavelength بالنانو متر، separation بالملليمتر، distance بالمتر. استخدم هذه المفاتيح الثلاثة.' ,
-       'induction: مولد كهربائي بملف نحاسي يدور بين قطبي مغناطيس. أظهر المجال وخطوطه والملف الدوار وموجة الجهد. استخدم مفاتيح field بوحدة T وarea بوحدة m² وturns كعدد صحيح وangularSpeed بوحدة rad/s وresistance بوحدة Ω. طبّق قانون فاراداي ε = −N dΦ/dt مع Φ = BA cos(ωt).',
+       'induction: مولد كهربائي بملف نحاسي يدور بين قطبي مغناطيس. أظهر المجال وخطوطه والملف الدوار وموجة الجهد. استخدم مفاتيح field بوحدة T وarea بوحدة m² وturns كعدد صحيح وangular_speed بوحدة rad/s وresistance بوحدة Ω. طبّق قانون فاراداي ε = −N dΦ/dt مع Φ = BA cos(ωt).',
        'scene: كوّن مشهداً ثلاثي الأبعاد مفهوماً من 2 إلى 8 عناصر مترابطة، مع حركات ذات معنى وليس كرات عشوائية.',
       'أضف 3 إلى 6 متغيرات فقط وبحد أقصى 7. لا تستخدم HTML أو JavaScript أو روابط أو كوداً. لا تخترع قياسات، وصرّح بحدود الدقة عند الحاجة.',
       'أعد JSON صالحاً فقط بلا Markdown أو شرح خارجي.',
