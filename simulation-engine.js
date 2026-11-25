@@ -279,6 +279,8 @@
       pressurePa: pressure,
       pressureKPa: pressure / 1000,
       pressureAtm: pressure / 101325,
+      mostProbableSpeed: Math.sqrt(2 * R * T / M),
+      meanSpeed: Math.sqrt(8 * R * T / (Math.PI * M)),
       rmsSpeed: Math.sqrt(3 * R * T / M),
       numberDensityMolM3: n / V
     };
@@ -449,7 +451,9 @@
           );
           rows.push(['ضغط الغاز', gas.pressureKPa.toFixed(2) + ' kPa']);
           rows.push(['الضغط الجوي النسبي', gas.pressureAtm.toFixed(3) + ' atm']);
-          rows.push(['سرعة الجذر التربيعي المتوسطة (N₂)', gas.rmsSpeed.toFixed(1) + ' m/s']);
+          rows.push(['السرعة الأكثر احتمالاً (N₂)', gas.mostProbableSpeed.toFixed(1) + ' m/s']);
+          rows.push(['السرعة المتوسطة (N₂)', gas.meanSpeed.toFixed(1) + ' m/s']);
+          rows.push(['سرعة RMS (N₂)', gas.rmsSpeed.toFixed(1) + ' m/s']);
           rows.push(['كثافة كمية المادة', gas.numberDensityMolM3.toFixed(2) + ' mol/m³']);
         }
         if (spec.engine === 'rlc') {
@@ -2247,11 +2251,15 @@
             particlePositions[pi * 3] = radius * Math.cos(phi);
             particlePositions[pi * 3 + 1] = vesselBottom + .12 + (particleSeeds() + 1) * .5 * Math.max(.1, gasHeight - .24);
             particlePositions[pi * 3 + 2] = radius * Math.sin(phi);
-            var vx = velocitySeeds(), vy = velocitySeeds(), vz = velocitySeeds();
-            var norm = Math.sqrt(vx * vx + vy * vy + vz * vz) || 1;
-            particleVelocity[pi * 3] = vx / norm;
-            particleVelocity[pi * 3 + 1] = vy / norm;
-            particleVelocity[pi * 3 + 2] = vz / norm;
+            // Maxwell-Boltzmann gas velocities: independent Gaussian Cartesian components.
+            function normalSample() {
+              var u1 = clamp((velocitySeeds() + 1) * .5, .000001, .999999);
+              var u2 = clamp((velocitySeeds() + 1) * .5, .000001, .999999);
+              return Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * u2);
+            }
+            particleVelocity[pi * 3] = normalSample() / Math.sqrt(3);
+            particleVelocity[pi * 3 + 1] = normalSample() / Math.sqrt(3);
+            particleVelocity[pi * 3 + 2] = normalSample() / Math.sqrt(3);
           }
           gasCountBuilt = count;
           gasGeometry.attributes.position.needsUpdate = true;
@@ -2549,7 +2557,7 @@
           if (spec.engine === 'decay') return 'يصف الاضمحلال الإشعاعي قانوناً إحصائياً: N(t)=N₀e^(−λt)، حيث λ=ln(2)/T½. كل نواة لها زمن اضمحلال عشوائي موزع أُسياً؛ لذلك قد يختلف العدد المشاهد عن المنحنى المتوقع، خصوصاً في العينات الصغيرة. زد عدد النوى لملاحظة تقارب النتيجة من المنحنى الإحصائي. هذا نموذج تعليمي لا يحدد مادة مشعة بعينها أو نشاطاً عملياً.';
           if (spec.engine === 'bohr') return 'في نموذج بور للأيونات الشبيهة بالهيدروجين تكون طاقة المستوى En = −13.6 Z²/n² eV. عند الانتقال بين مستويين تتغير طاقة الذرة بمقدار ΔE = 13.6 Z²|1/nf² − 1/ni²|، وتُحمل هذه الطاقة بفوتون طوله الموجي λ = hc/ΔE. هذا نموذج مبسط، ولا يصف الذرات متعددة الإلكترونات أو البنية الدقيقة للخطوط الطيفية.';
           if (spec.engine === 'blackbody') return 'يصف قانون بلانك التوزيع الطيفي لإشعاع الجسم الأسود حسب الطول الموجي ودرجة الحرارة. تنتقل قمة الطيف مع الحرارة وفق قانون فين λmax = 2.8978×10⁶/T nm، بينما تتناسب القدرة الكلية المشعة لكل وحدة مساحة مع T⁴ وفق قانون ستيفان–بولتزمان. الرسم يعرض طيفاً نسبياً ضمن نطاق 100–2400 nm؛ والقدرة الكلية المعروضة محسوبة لمساحة السطح المختارة. النموذج يفترض باعثاً مثالياً بمعامل انبعاث يساوي واحداً.';
-          if (spec.engine === 'idealgas') return 'يطبق النموذج قانون الغاز المثالي PV=nRT. درجة الحرارة تغيّر السرعة المتوسطة للجسيمات تقريبياً وفق الجذر التربيعي لـ T، وكمية الغاز تحدد عدد الجسيمات المعروضة، والحجم يحرك المكبس. الجسيمات تتحرك وترتد عن الجدران، لكن لا نحسب التصادمات البينية التفصيلية أو التوزيع الكامل لسرعات ماكسويل–بولتزمان.';
+          if (spec.engine === 'idealgas') return 'يطبق النموذج قانون الغاز المثالي PV=nRT. مكونات سرعة الجزيئات تُسحب عشوائياً من توزيعات غاوسية مستقلة، فتنتج تقريباً توزيع ماكسويل–بولتزمان للسرعات؛ تزداد السرعات المميزة مع الجذر التربيعي لدرجة الحرارة. تُعرض السرعة الأكثر احتمالاً والمتوسطة وRMS. كمية الغاز تحدد عدد الجسيمات المعروضة، والحجم يحرك المكبس. نهمل التصادمات البينية التفصيلية وتغير التوزيع بسببها.';
           if (spec.engine === 'rlc') return 'تتصل المقاومة والملف والمكثف على التوالي بمصدر متناوب. المفاعلة الحثية XL=ωL والمفاعلة السعوية XC=1/(ωC)، والممانعة Z=√(R²+(XL−XC)²). يبلغ التيار أعظمه قرب تردد الرنين f0=1/(2π√LC). يعرض المنظار موجتي الجهد والتيار وفرق الطور بينهما. نهمل مقاومة الملف الداخلية والطفيليات وتأثير الحمل غير المثالي.';
           return spec.assumptions || spec.principle || spec.summary;
         },
