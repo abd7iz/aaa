@@ -94,7 +94,8 @@ jobs:
             "} else if (spec.engine === 'doppler') {",
             "} else if (spec.engine === 'standingwave') {",
             "} else if (spec.engine === 'collision') {",
-            "} else if (spec.engine === 'titration') {"
+            "} else if (spec.engine === 'titration') {",
+            "} else if (spec.engine === 'electrostatic') {"
           ];
           for (const marker of branchMarkers) assert.ok(engineSource.includes(marker), "Missing simulation branch: " + marker);
           assert.ok(engineSource.includes("function maxwellPdfRatio"), "Ideal gas Maxwell speed curve is missing");
@@ -369,7 +370,25 @@ jobs:
           assert.ok(afterEquivalence.pH > 7 && afterEquivalence.excess === 'base');
           assert.ok(Math.abs(beforeEquivalence.equivalenceVolumeMl - 25) < 1e-12);
           assert.ok(Math.abs(shiftedEquivalence.equivalenceVolumeMl - 50) < 1e-12);
-          console.log('Optics, atomic spectra, gas, RLC, Doppler, collisions and acid-base titration physics/schema checks passed.');
+          const electrostatic = api.normalizeSpec({
+            schema: 'mukhtabar-sim-v1',
+            title: 'مجال شحنتين',
+            field: 'physics',
+            engine: 'electrostatic',
+            controls: []
+          });
+          assert.equal(electrostatic.engine, 'electrostatic');
+          assert.deepEqual(Array.from(electrostatic.controls, c => c.key), ['charge1', 'charge2', 'separation', 'probe_x', 'probe_y']);
+          assert.deepEqual(Array.from(electrostatic.controls, c => c.value), [1, -1, 1, 0, 0]);
+          const oppositeMid = api.coulombField(1, -1, 1, 0, 0);
+          const likeMid = api.coulombField(1, 1, 1, 0, 0);
+          const k = 8.9875517923;
+          assert.ok(Math.abs(oppositeMid.fieldX - 2 * k * 4) < 1e-8);
+          assert.ok(Math.abs(oppositeMid.fieldY) < 1e-12);
+          assert.ok(Math.abs(oppositeMid.potential) < 1e-12);
+          assert.ok(Math.abs(likeMid.magnitude) < 1e-12);
+          assert.ok(Math.abs(likeMid.potential - 2 * k * 2) < 1e-8);
+          console.log('Optics, atomic spectra, gas, RLC, Doppler, collisions, titration and electrostatic physics/schema checks passed.');
           NODE
           node --check ai-worker/worker.js
           node --check ai-config.js
