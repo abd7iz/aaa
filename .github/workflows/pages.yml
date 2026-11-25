@@ -75,9 +75,24 @@ jobs:
           const assert = require('node:assert/strict');
           const fs = require('node:fs');
           const vm = require('node:vm');
+          const engineSource = fs.readFileSync('simulation-engine.js', 'utf8');
+          const branchMarkers = [
+            "if (spec.engine === 'tokamak') {",
+            "} else if (spec.engine === 'interference') {",
+            "} else if (spec.engine === 'induction') {",
+            "} else if (spec.engine === 'bohr') {",
+            "} else if (spec.engine === 'decay') {",
+            "} else if (spec.engine === 'photoelectric') {",
+            "} else if (spec.engine === 'polarization') {",
+            "} else if (spec.engine === 'dipole') {",
+            "} else if (spec.engine === 'diffraction') {",
+            "} else if (spec.engine === 'wave') {",
+            "} else if (spec.engine === 'pendulum') {"
+          ];
+          for (const marker of branchMarkers) assert.ok(engineSource.includes(marker), "Missing simulation branch: " + marker);
           const sandbox = { window: {} };
           vm.createContext(sandbox);
-          vm.runInContext(fs.readFileSync('simulation-engine.js', 'utf8'), sandbox);
+          vm.runInContext(engineSource, sandbox);
           const api = sandbox.window.MUKHTABAR_ENGINE;
           assert.ok(api, 'simulation engine must export its API');
           const spec = api.normalizeSpec({
