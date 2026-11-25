@@ -108,7 +108,17 @@ jobs:
           assert.equal(diffraction.engine, 'diffraction');
           assert.deepEqual(Array.from(diffraction.controls, c => c.key), ['wavelength', 'grating_spacing', 'slit_count', 'slit_width', 'distance']);
           assert.deepEqual(Array.from(diffraction.controls, c => c.value), [550, 5, 5, 0.35, 1.5]);
-          console.log('Interference, induction and diffraction schema smoke tests passed.');
+          const dipole = api.normalizeSpec({
+            schema: 'mukhtabar-sim-v1',
+            title: 'المجال المغناطيسي لثنائي القطب',
+            field: 'physics',
+            engine: 'dipole',
+            controls: []
+          });
+          assert.equal(dipole.engine, 'dipole');
+          assert.deepEqual(Array.from(dipole.controls, c => c.key), ['moment', 'probe_radius', 'probe_angle', 'line_count']);
+          assert.deepEqual(Array.from(dipole.controls, c => c.value), [2, 1.3, 45, 16]);
+          console.log('Interference, induction, diffraction and dipole schema smoke tests passed.');
           NODE
           node --check ai-worker/worker.js
           node --check ai-config.js
