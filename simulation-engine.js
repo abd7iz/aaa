@@ -967,6 +967,53 @@
         var fieldArrow = new T.ArrowHelper(new T.Vector3(1, 0, 0), new T.Vector3(), .8, 0xffd166, .17, .11);
         S.add(fieldArrow);
 
+        // Cross-sectional vector map: arrows are sampled from the analytic dipole B field.
+        var vectorSeeds = [];
+        for (var vy = -2.0; vy <= 2.001; vy += .8) {
+          for (var vx = -2.4; vx <= 2.401; vx += .8) {
+            if (Math.sqrt(vx * vx + vy * vy) < .82) continue;
+            vectorSeeds.push({ x: vx, y: vy });
+          }
+        }
+        var vectorPositions = new Float32Array(vectorSeeds.length * 6);
+        var vectorGeometry = new T.BufferGeometry();
+        vectorGeometry.setAttribute('position', new T.BufferAttribute(vectorPositions, 3));
+        var vectorLines = new T.LineSegments(vectorGeometry,
+          new T.LineBasicMaterial({ color: 0x70dfff, transparent: true, opacity: .5 }));
+        S.add(vectorLines);
+        var vectorArrowGeometry = new T.ConeGeometry(.042, .14, 7);
+        var vectorArrowMaterial = new T.MeshBasicMaterial({ color: 0x9beaff });
+        var vectorArrows = [];
+        var vectorUp = new T.Vector3(0, 1, 0), vectorDir = new T.Vector3();
+        vectorSeeds.forEach(function () {
+          var head = new T.Mesh(vectorArrowGeometry, vectorArrowMaterial);
+          S.add(head);
+          vectorArrows.push(head);
+        });
+        function updateVectorMap(momentValue) {
+          for (var vi = 0; vi < vectorSeeds.length; vi++) {
+            var seed = vectorSeeds[vi];
+            var r2 = seed.x * seed.x + seed.y * seed.y;
+            var r = Math.sqrt(r2);
+            var factor = 1e-7 * momentValue / (r2 * r2 * r);
+            var bx = 3 * factor * seed.x * seed.y;
+            var by = factor * (3 * seed.y * seed.y - r2);
+            vectorDir.set(bx, by, 0).normalize();
+            var magnitude = Math.sqrt(bx * bx + by * by);
+            var length = clamp(.12 + Math.log10(1 + magnitude * 1e7) * .11, .12, .34);
+            var x0 = seed.x, y0 = seed.y, z0 = .52;
+            var x1 = x0 + vectorDir.x * length;
+            var y1 = y0 + vectorDir.y * length;
+            var j = vi * 6;
+            vectorPositions[j] = x0; vectorPositions[j + 1] = y0; vectorPositions[j + 2] = z0;
+            vectorPositions[j + 3] = x1; vectorPositions[j + 4] = y1; vectorPositions[j + 5] = z0;
+            var head = vectorArrows[vi];
+            head.position.set(x1 - vectorDir.x * .065, y1 - vectorDir.y * .065, z0);
+            head.quaternion.setFromUnitVectors(vectorUp, vectorDir);
+          }
+          vectorGeometry.attributes.position.needsUpdate = true;
+        }
+
         function dipoleAt(r, theta, moment) {
           var c = 1e-7 * moment / (r * r * r);
           var stheta = Math.sin(theta), ctheta = Math.cos(theta);
@@ -999,6 +1046,7 @@
           var r = param(prm, 'probe_radius', 1.3);
           var theta = param(prm, 'probe_angle', 45) * Math.PI / 180;
           var moment = param(prm, 'moment', 2);
+          updateVectorMap(moment);
           var x = r * Math.sin(theta), y = r * Math.cos(theta);
           probe.position.set(x, y, 0);
           var B = dipoleAt(r, theta, moment);
