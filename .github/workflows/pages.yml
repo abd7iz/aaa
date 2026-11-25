@@ -237,7 +237,7 @@ jobs:
           assert.ok(peakValue > api.blackbodySpectrum(5800, sunPeak * .7));
           assert.ok(peakValue > api.blackbodySpectrum(5800, sunPeak * 1.4));
           const power = api.stefanBoltzmannPower(5800, .01);
-          assert.ok(power > 60000 && power < 65000);
+          assert.ok(power > 600000 && power < 650000);
           console.log('Optics, atomic spectra, blackbody, dipole and radioactive/quantum physics checks passed.');
           NODE
           node --check ai-worker/worker.js
