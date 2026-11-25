@@ -222,7 +222,6 @@ export default {
             systemInstruction: { parts: [{ text: SYSTEM_INSTRUCTION }] },
             contents,
             generationConfig: {
-              thinkingConfig: { thinkingLevel: "low" },
               maxOutputTokens: 1800
             }
           })
@@ -260,7 +259,7 @@ export default {
         return json({ error: "وصل رد فارغ من النموذج. أعد صياغة السؤال." }, 502, origin);
       }
 
-      return json({ reply, steps, usage: payload.usage || null }, 200, origin);
+      return json({ reply, usage: payload.usageMetadata || null, model: activeModel }, 200, origin);
     } catch (error) {
       return json({ error: "حدث خطأ في معالجة الرسالة. حاول مرة أخرى." }, 500, origin);
     }
