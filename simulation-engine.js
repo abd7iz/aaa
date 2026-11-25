@@ -257,7 +257,7 @@
         coilShape.bezierCurveTo(coilOuter, -coilHalfH - .22, coilInner + .12, -coilHalfH - .22, coilInner, -coilHalfH);
         coilShape.closePath();
         var coilGeometry = new T.ExtrudeGeometry(coilShape, {
-          depth: .17,
+          depth: .13,
           steps: 1,
           curveSegments: 18,
           bevelEnabled: true,
@@ -265,17 +265,17 @@
           bevelSize: .055,
           bevelThickness: .055
         });
-        coilGeometry.translate(0, 0, -.085);
+        coilGeometry.translate(0, 0, -.065);
         var coilMaterial = new T.MeshPhongMaterial({
-          color: 0xb8d2df,
-          emissive: 0x24485d,
-          emissiveIntensity: .72,
-          specular: 0xf0fbff,
-          shininess: 105
+          color: 0x344b60,
+          emissive: 0x071521,
+          emissiveIntensity: .12,
+          specular: 0x7893a5,
+          shininess: 38
         });
         var coilEdgeGeometry = new T.EdgesGeometry(coilGeometry, 32);
         var coilEdgeMaterial = new T.LineBasicMaterial({
-          color: 0x75dfff, transparent: true, opacity: .42
+          color: 0x42cfff, transparent: true, opacity: .58
         });
         for (var c = 0; c < 10; c++) {
           var coilAngle = c / 10 * Math.PI * 2;
