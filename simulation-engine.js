@@ -248,35 +248,37 @@
           S.add(winding);
         }
 
-        // D-shaped toroidal-field coils surround the chamber vertically.
-        // Each coil sits in a radial/vertical plane, rather than appearing as a small ring.
+        // D-shaped toroidal-field coils: straight inboard legs and rounded outboard returns.
         var coilMaterial = new T.MeshPhongMaterial({
-          color: 0x9b8060, emissive: 0x100b05, metalness: .78, shininess: 92
+          color: 0x927b5b, emissive: 0x080604, metalness: .82, shininess: 105
         });
+        var coilInner = R - .78, coilOuter = R + 1.02, coilHalfH = 1.62;
         for (var c = 0; c < 12; c++) {
           var coilAngle = c / 12 * Math.PI * 2;
           var coilPoints = [];
-          var innerR = R - .82, outerR = R + 1.02, halfH = 1.72;
-          // D-shaped cross-section: straight inner leg and a broad curved outer return.
-          coilPoints.push(new T.Vector3(innerR * Math.cos(coilAngle), -halfH, innerR * Math.sin(coilAngle)));
-          coilPoints.push(new T.Vector3(innerR * Math.cos(coilAngle), halfH, innerR * Math.sin(coilAngle)));
-          for (var top = 1; top <= 30; top++) {
-            var uTop = Math.PI * top / 30;
-            var rTop = innerR + (outerR - innerR) * (1 - Math.cos(uTop)) * .5;
-            var yTop = halfH + .28 * Math.sin(uTop);
-            coilPoints.push(new T.Vector3(rTop * Math.cos(coilAngle), yTop, rTop * Math.sin(coilAngle)));
+          coilPoints.push(new T.Vector3(coilInner * Math.cos(coilAngle), -coilHalfH, coilInner * Math.sin(coilAngle)));
+          coilPoints.push(new T.Vector3(coilInner * Math.cos(coilAngle), coilHalfH, coilInner * Math.sin(coilAngle)));
+          for (var cp = 0; cp <= 48; cp++) {
+            var a = Math.PI / 2 - Math.PI * cp / 48;
+            var radial = (coilInner + coilOuter) * .5 + (coilOuter - coilInner) * .5 * Math.cos(a);
+            var vertical = coilHalfH * Math.sin(a);
+            coilPoints.push(new T.Vector3(radial * Math.cos(coilAngle), vertical, radial * Math.sin(coilAngle)));
           }
-          coilPoints.push(new T.Vector3(outerR * Math.cos(coilAngle), -halfH, outerR * Math.sin(coilAngle)));
-          for (var bot = 1; bot < 30; bot++) {
-            var uBot = Math.PI * bot / 30;
-            var rBot = outerR - (outerR - innerR) * (1 - Math.cos(uBot)) * .5;
-            var yBot = -halfH - .28 * Math.sin(uBot);
-            coilPoints.push(new T.Vector3(rBot * Math.cos(coilAngle), yBot, rBot * Math.sin(coilAngle)));
-          }
-          var coilCurve = new T.CatmullRomCurve3(coilPoints, true, 'centripetal');
-          var coil = new T.Mesh(new T.TubeGeometry(coilCurve, 120, .026, 6, true), coilMaterial);
+          var coilCurve = new T.CatmullRomCurve3(coilPoints, false, 'centripetal');
+          var coil = new T.Mesh(new T.TubeGeometry(coilCurve, 128, .062, 8, false), coilMaterial);
           S.add(coil);
         }
+
+        // Subtle structural support rings above and below the coil set.
+        var supportMat = new T.MeshPhongMaterial({
+          color: 0x526477, metalness: .8, shininess: 90, transparent: true, opacity: .62
+        });
+        [-1.82, 1.82].forEach(function (yy) {
+          var support = new T.Mesh(new T.TorusGeometry(coilOuter - .08, .055, 10, 96), supportMat);
+          support.rotation.x = Math.PI / 2;
+          support.position.y = yy;
+          S.add(support);
+        });
 
         var lineGroup = new T.Group(); S.add(lineGroup);
         var lineMats = [], lastField = -1;
