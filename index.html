@@ -1291,7 +1291,7 @@ function viewCreate(){
     var text=inp.value.trim();if(!text){toast('اكتب وصف التجربة أولاً');return;}
     btn.disabled=true;res.innerHTML='';var out=null;
     try{out=ai?await aiGenerate(text):demoInterpret(text);}
-    catch(e){res.innerHTML='<div class="banner">'+ic('info')+'<span>تعذّر الاتصال بالخادم. تحقق من الإعدادات أو الشبكة.</span></div>';btn.disabled=false;refreshIcons();return;}
+    catch(e){var detail=e&&e.message?String(e.message):String(e||'خطأ غير معروف');res.innerHTML='<div class="banner"><span><b>فشل إنشاء التجربة</b><br>'+esc(detail.slice(0,500))+'</span></div>';btn.disabled=false;refreshIcons();return;}
     btn.disabled=false;
     if(!out||!out.expId){
       res.innerHTML='<div class="banner">'+ic('info')+'<span>'+(ai&&out&&out.note?esc(out.note):'لا توجد محاكاة مطابقة لوصفك حالياً. المتوفر: الانقسام المتساوي، حركة المقذوفات، المدارات.')+'</span></div>';refreshIcons();return;
