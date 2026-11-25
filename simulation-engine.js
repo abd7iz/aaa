@@ -51,7 +51,7 @@
     if (!raw || typeof raw !== 'object' || raw.schema !== 'mukhtabar-sim-v1') {
       throw new Error('صيغة التجربة التي أنشأها الذكاء الاصطناعي غير معروفة.');
     }
-    var engine = ['tokamak', 'wave', 'pendulum', 'interference', 'induction', 'diffraction', 'dipole', 'polarization', 'photoelectric', 'decay', 'bohr', 'blackbody', 'idealgas', 'rlc', 'doppler', 'standingwave', 'collision', 'scene'].indexOf(raw.engine) >= 0 ? raw.engine : null;
+    var engine = ['tokamak', 'wave', 'pendulum', 'interference', 'induction', 'diffraction', 'dipole', 'polarization', 'photoelectric', 'decay', 'bohr', 'blackbody', 'idealgas', 'rlc', 'doppler', 'standingwave', 'collision', 'titration', 'scene'].indexOf(raw.engine) >= 0 ? raw.engine : null;
     if (!engine) throw new Error('نوع المحاكاة غير مدعوم في محرك المختبر الحالي.');
     var field = FIELDS.indexOf(raw.field) >= 0 ? raw.field : 'physics';
     var used = {}, controls = [];
@@ -146,6 +146,11 @@
       ensure(defaultControl('speed1', 'سرعة الكرة الأولى', .5, 5, .1, 3, 'm/s'));
       ensure(defaultControl('speed2', 'سرعة الكرة الثانية', .5, 5, .1, 2, 'm/s'));
       ensure(defaultControl('restitution', 'معامل الارتداد e', 0, 1, .05, 1, ''));
+    } else if (engine === 'titration') {
+      ensure(defaultControl('acid_concentration', 'تركيز الحمض', .05, 1, .01, .1, 'M'));
+      ensure(defaultControl('base_concentration', 'تركيز القاعدة', .05, 1, .01, .1, 'M'));
+      ensure(defaultControl('acid_volume', 'حجم الحمض الابتدائي', 10, 100, 1, 25, 'mL'));
+      ensure(defaultControl('base_added', 'حجم القاعدة المضافة', 0, 100, .5, 25, 'mL'));
     }
     if (!controls.length) controls.push(defaultControl('rate', 'معدل الحركة', .1, 3, .05, 1, '×'));
     if (controls.length > 7) controls = controls.slice(0, 7);
@@ -401,6 +406,39 @@
     };
   };
 
+  ENGINE.strongTitration = function (acidM, baseM, acidVolumeMl, baseAddedMl) {
+    var Ca = Math.max(.000001, finite(acidM, .1));
+    var Cb = Math.max(.000001, finite(baseM, .1));
+    var VaMl = Math.max(.001, finite(acidVolumeMl, 25));
+    var VbMl = Math.max(0, finite(baseAddedMl, 25));
+    var acidMoles = Ca * VaMl / 1000;
+    var baseMoles = Cb * VbMl / 1000;
+    var totalLitres = (VaMl + VbMl) / 1000;
+    var difference = acidMoles - baseMoles;
+    var pH;
+    var excess;
+    if (Math.abs(difference) <= Math.max(acidMoles, baseMoles, 1e-12) * 1e-10) {
+      pH = 7;
+      excess = 'equivalence';
+    } else if (difference > 0) {
+      pH = -Math.log10(difference / totalLitres);
+      excess = 'acid';
+    } else {
+      var hydroxide = -difference / totalLitres;
+      pH = 14 + Math.log10(hydroxide);
+      excess = 'base';
+    }
+    var equivalenceVolumeMl = Ca * VaMl / Cb;
+    return {
+      pH: clamp(pH, 0, 14),
+      excess: excess,
+      acidMoles: acidMoles,
+      baseMoles: baseMoles,
+      equivalenceVolumeMl: equivalenceVolumeMl,
+      totalVolumeMl: VaMl + VbMl
+    };
+  };
+
   function paramsFrom(def, state) {
     var out = {};
     def.params.forEach(function (p) {
@@ -420,7 +458,7 @@
       id: 'generated',
       field: spec.field === 'biology' ? 'bio' : 'phy',
       fieldLabel: ({ physics: 'الفيزياء', biology: 'الأحياء', chemistry: 'الكيمياء', astronomy: 'الفلك', mathematics: 'الرياضيات' })[spec.field],
-      icon: spec.engine === 'tokamak' ? 'atom' : spec.engine === 'wave' ? 'activity' : spec.engine === 'pendulum' ? 'clock' : spec.engine === 'interference' ? 'waves' : spec.engine === 'induction' ? 'zap' : spec.engine === 'diffraction' ? 'scan-eye' : spec.engine === 'dipole' ? 'magnet' : spec.engine === 'polarization' ? 'sun' : spec.engine === 'photoelectric' ? 'zap' : spec.engine === 'decay' ? 'atom' : spec.engine === 'bohr' ? 'orbit' : spec.engine === 'blackbody' ? 'thermometer-sun' : spec.engine === 'idealgas' ? 'gauge' : spec.engine === 'rlc' ? 'activity' : spec.engine === 'doppler' ? 'audio-lines' : spec.engine === 'standingwave' ? 'waves' : spec.engine === 'collision' ? 'arrow-left-right' : 'shapes',
+      icon: spec.engine === 'tokamak' ? 'atom' : spec.engine === 'wave' ? 'activity' : spec.engine === 'pendulum' ? 'clock' : spec.engine === 'interference' ? 'waves' : spec.engine === 'induction' ? 'zap' : spec.engine === 'diffraction' ? 'scan-eye' : spec.engine === 'dipole' ? 'magnet' : spec.engine === 'polarization' ? 'sun' : spec.engine === 'photoelectric' ? 'zap' : spec.engine === 'decay' ? 'atom' : spec.engine === 'bohr' ? 'orbit' : spec.engine === 'blackbody' ? 'thermometer-sun' : spec.engine === 'idealgas' ? 'gauge' : spec.engine === 'rlc' ? 'activity' : spec.engine === 'doppler' ? 'audio-lines' : spec.engine === 'standingwave' ? 'waves' : spec.engine === 'collision' ? 'arrow-left-right' : spec.engine === 'titration' ? 'flask-conical' : 'shapes',
       title: spec.title,
       short: spec.summary,
       spec: spec,
@@ -598,6 +636,18 @@
           rows.push(['الطاقة الحركية بعد', result.kineticEnergyAfter.toFixed(2) + ' J']);
           rows.push(['الطاقة المفقودة', result.kineticEnergyLoss.toFixed(2) + ' J']);
           rows.push(['معامل الارتداد', result.restitution.toFixed(2)]);
+        }
+        if (spec.engine === 'titration') {
+          var titration = ENGINE.strongTitration(
+            param(prm, 'acid_concentration', .1),
+            param(prm, 'base_concentration', .1),
+            param(prm, 'acid_volume', 25),
+            param(prm, 'base_added', 25)
+          );
+          rows.push(['قيمة pH', titration.pH.toFixed(2)]);
+          rows.push(['حجم التكافؤ', titration.equivalenceVolumeMl.toFixed(2) + ' mL']);
+          rows.push(['حجم القاعدة المضاف', param(prm, 'base_added', 25).toFixed(1) + ' mL']);
+          rows.push(['الحالة الكيميائية', titration.excess === 'acid' ? 'الحمض فائض' : titration.excess === 'base' ? 'القاعدة فائضة' : 'نقطة التكافؤ']);
         }
         return rows;
       };
@@ -2936,6 +2986,137 @@
         updateModel(0);
         st.sph.r = 9.8;
         st.place();
+      } else if (spec.engine === 'titration') {
+        // Strong acid / strong base titration apparatus and pH curve.
+        var glassMat = new T.MeshPhongMaterial({
+          color: 0x84b6ce, transparent: true, opacity: .18,
+          side: T.DoubleSide, shininess: 105, depthWrite: false
+        });
+        var burette = new T.Mesh(new T.CylinderGeometry(.075, .075, 2.65, 28, 1, true), glassMat);
+        burette.position.set(-1.5, .82, 0);
+        S.add(burette);
+        var buretteLiquid = new T.Mesh(new T.CylinderGeometry(.045, .045, 2.15, 20),
+          new T.MeshPhongMaterial({ color: 0x76d8ff, transparent: true, opacity: .28 }));
+        buretteLiquid.position.set(-1.5, .82, 0);
+        S.add(buretteLiquid);
+        var stopcock = new T.Mesh(new T.BoxGeometry(.28, .09, .12),
+          new T.MeshPhongMaterial({ color: 0xc5d1d8, metalness: .8, shininess: 90 }));
+        stopcock.position.set(-1.5, -.57, 0);
+        S.add(stopcock);
+        var tip = new T.Mesh(new T.CylinderGeometry(.025, .045, .28, 12),
+          new T.MeshPhongMaterial({ color: 0xb6c6cf, metalness: .7 }));
+        tip.position.set(-1.5, -.75, 0);
+        S.add(tip);
+
+        // Erlenmeyer flask body and neck.
+        var flaskMat = new T.MeshPhongMaterial({
+          color: 0x84b6ce, transparent: true, opacity: .18,
+          side: T.DoubleSide, shininess: 105, depthWrite: false
+        });
+        var flaskBody = new T.Mesh(new T.CylinderGeometry(.14, .82, 1.18, 40, 1, true), flaskMat);
+        flaskBody.position.set(.1, -1.03, 0);
+        S.add(flaskBody);
+        var flaskBase = new T.Mesh(new T.TorusGeometry(.74, .035, 8, 48), flaskMat);
+        flaskBase.position.set(.1, -1.62, 0);
+        flaskBase.rotation.x = Math.PI / 2;
+        S.add(flaskBase);
+        var flaskNeck = new T.Mesh(new T.CylinderGeometry(.14, .14, .48, 28, 1, true), flaskMat);
+        flaskNeck.position.set(.1, -.2, 0);
+        S.add(flaskNeck);
+
+        var solutionMaterial = new T.MeshPhongMaterial({
+          color: 0x8bd9a5, transparent: true, opacity: .66,
+          shininess: 52, side: T.DoubleSide, depthWrite: false
+        });
+        var solution = new T.Mesh(new T.CylinderGeometry(.13, .62, .62, 36, 1, true), solutionMaterial);
+        solution.position.set(.1, -1.34, .015);
+        S.add(solution);
+
+        // Indicator pH color swatch and slow titrant drops.
+        var indicator = new T.Mesh(new T.SphereGeometry(.13, 18, 14),
+          new T.MeshPhongMaterial({ color: 0x8bd9a5, emissive: 0x112c1a, shininess: 55 }));
+        indicator.position.set(1.45, .18, .08);
+        S.add(indicator);
+        var drops = [];
+        var dropMat = new T.MeshBasicMaterial({
+          color: 0x62dfff, transparent: true, opacity: .9,
+          blending: T.AdditiveBlending, depthWrite: false
+        });
+        for (var dp = 0; dp < 5; dp++) {
+          var drop = new T.Mesh(new T.SphereGeometry(.045, 12, 10), dropMat);
+          S.add(drop);
+          drops.push(drop);
+        }
+
+        // pH vs added-base volume curve with a movable current-volume marker.
+        var chartX = 1.35, chartY = -1.0, chartW = 2.15, chartH = 1.72, chartZ = .2;
+        var axesGeo = new T.BufferGeometry().setFromPoints([
+          new T.Vector3(chartX, chartY, chartZ),
+          new T.Vector3(chartX + chartW, chartY, chartZ),
+          new T.Vector3(chartX, chartY, chartZ),
+          new T.Vector3(chartX, chartY + chartH, chartZ)
+        ]);
+        S.add(new T.LineSegments(axesGeo, new T.LineBasicMaterial({ color: 0x71879a, transparent: true, opacity: .6 })));
+        var curvePositions = new Float32Array(101 * 3);
+        var curveGeo = new T.BufferGeometry();
+        curveGeo.setAttribute('position', new T.BufferAttribute(curvePositions, 3));
+        var curveLine = new T.Line(curveGeo, new T.LineBasicMaterial({ color: 0x7be5b1, transparent: true, opacity: .95 }));
+        S.add(curveLine);
+        var currentMarker = new T.Mesh(new T.SphereGeometry(.075, 14, 12),
+          new T.MeshBasicMaterial({ color: 0xffd166 }));
+        S.add(currentMarker);
+
+        function indicatorColor(pH) {
+          if (pH < 3) return new T.Color(0xe54b4b);
+          if (pH < 5) return new T.Color(0xffa14a);
+          if (pH < 6.5) return new T.Color(0xffe16b);
+          if (pH < 8.2) return new T.Color(0x70ca86);
+          if (pH < 10) return new T.Color(0x4ba8ed);
+          return new T.Color(0xa577ed);
+        }
+        var curveKey = '';
+        function updateTitrationCurve() {
+          var Ca = param(prm, 'acid_concentration', .1);
+          var Cb = param(prm, 'base_concentration', .1);
+          var Va = param(prm, 'acid_volume', 25);
+          var equivalence = Ca * Va / Cb;
+          var key = [Ca, Cb, Va].join('|');
+          if (key === curveKey) return equivalence;
+          curveKey = key;
+          for (var ci = 0; ci <= 100; ci++) {
+            var added = equivalence * 2 * ci / 100;
+            var ph = ENGINE.strongTitration(Ca, Cb, Va, added).pH;
+            curvePositions[ci * 3] = chartX + chartW * ci / 100;
+            curvePositions[ci * 3 + 1] = chartY + chartH * ph / 14;
+            curvePositions[ci * 3 + 2] = chartZ + .025;
+          }
+          curveGeo.attributes.position.needsUpdate = true;
+          return equivalence;
+        }
+        updateModel = function () {
+          var Ca = param(prm, 'acid_concentration', .1);
+          var Cb = param(prm, 'base_concentration', .1);
+          var Va = param(prm, 'acid_volume', 25);
+          var Vb = param(prm, 'base_added', 25);
+          var state = ENGINE.strongTitration(Ca, Cb, Va, Vb);
+          var equivalence = updateTitrationCurve();
+          var color = indicatorColor(state.pH);
+          solutionMaterial.color.copy(color);
+          indicator.material.color.copy(color);
+          solution.scale.y = .72 + clamp((Va + Vb) / 200, 0, .4);
+          var volumeRatio = clamp(Vb / Math.max(.001, equivalence * 2), 0, 1);
+          currentMarker.position.set(chartX + chartW * volumeRatio, chartY + chartH * state.pH / 14, chartZ + .08);
+          var dripPhase = time * 1.1;
+          drops.forEach(function (d, index) {
+            var q = (dripPhase + index / drops.length) % 1;
+            d.position.set(-1.5 + .18 * q, -.88 - q * .55, .03);
+            d.scale.setScalar(1 - .35 * q);
+          });
+        };
+        resetModel = function () { time = 0; updateModel(0); };
+        updateModel(0);
+        st.sph.r = 10.3;
+        st.place();
       } else {
         var meshes = [];
         spec.objects.forEach(function (o) {
@@ -3019,6 +3200,7 @@
           if (spec.engine === 'doppler') return 'يتغير التردد المسموع بسبب الحركة النسبية بين المصدر والمستمع. مع اعتبار سرعة المصدر موجبة باتجاه المستمع وسرعة المستمع موجبة باتجاه المصدر: f′=f(c+vo)/(c−vs). عند الاقتراب تتقارب جبهات الموجة أمام المصدر ويزداد التردد، وعند الابتعاد تتباعد ويقل التردد. النموذج يستخدم موجات دائرية توضيحية وصوتاً في وسط ساكن، ولا يحسب انعكاس الصوت أو الرياح أو تغيّر سرعة الصوت مع الحرارة.';
           if (spec.engine === 'standingwave') return 'تتكون الموجة الواقفة من تراكب موجتين متعاكستين على وتر مثبت الطرفين. سرعة الموجة v=√(T/μ)، والترددات الطبيعية fn=n v/(2L)، والطول الموجي λn=2L/n. تظهر العقد عند نقاط الإزاحة الصفرية والبطون عند أقصى إزاحة. يغيّر شد الوتر والكثافة الخطية وطوله ترددات الرنين. النموذج يوضح استجابة توافقية مع تخميد مبسط، ولا يحسب خواص الوتر غير الخطية.';
           if (spec.engine === 'collision') return 'يعرض النموذج تصادماً خطياً مباشراً بين جسمين. يُحفظ الزخم في جميع التصادمات، أما الطاقة الحركية فتُحفظ فقط في التصادم المرن عندما e=1. يحدد معامل الارتداد e نسبة سرعة التباعد إلى سرعة الاقتراب. عند e=0 يكون التصادم عديم الارتداد وتتحرك الكرتان بعده بسرعة مشتركة. نهمل الاحتكاك والقوى الخارجية خلال زمن التصادم.';
+          if (spec.engine === 'titration') return 'يعرض النموذج معايرة حمض قوي أحادي البروتون بقاعدة قوية أحادية الهيدروكسيد عند 25°C. قبل التكافؤ نحسب فائض +H، وبعده فائض −OH، وعند التكافؤ المثالي تكون pH=7. يتغير لون الدليل مع pH ويُرسم منحنى pH مقابل حجم القاعدة المضافة. لا يمثل هذا النموذج الأحماض الضعيفة أو الاتزانات أو النشاط الكيميائي.';
           return spec.assumptions || spec.principle || spec.summary;
         },
         dispose: function () { st.dispose(); }
