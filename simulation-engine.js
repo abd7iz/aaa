@@ -51,7 +51,7 @@
     if (!raw || typeof raw !== 'object' || raw.schema !== 'mukhtabar-sim-v1') {
       throw new Error('صيغة التجربة التي أنشأها الذكاء الاصطناعي غير معروفة.');
     }
-    var engine = ['tokamak', 'wave', 'pendulum', 'interference', 'induction', 'scene'].indexOf(raw.engine) >= 0 ? raw.engine : null;
+    var engine = ['tokamak', 'wave', 'pendulum', 'interference', 'induction', 'diffraction', 'scene'].indexOf(raw.engine) >= 0 ? raw.engine : null;
     if (!engine) throw new Error('نوع المحاكاة غير مدعوم في محرك المختبر الحالي.');
     var field = FIELDS.indexOf(raw.field) >= 0 ? raw.field : 'physics';
     var used = {}, controls = [];
@@ -88,6 +88,12 @@
       ensure(defaultControl('turns', 'عدد لفات الملف', 10, 200, 5, 100, 'لفة'));
       ensure(defaultControl('angular_speed', 'السرعة الزاوية', 1, 30, .5, 12, 'rad/s'));
       ensure(defaultControl('resistance', 'مقاومة الدائرة', .5, 20, .5, 4, 'Ω'));
+    } else if (engine === 'diffraction') {
+      ensure(defaultControl('wavelength', 'الطول الموجي', 380, 700, 5, 550, 'nm'));
+      ensure(defaultControl('grating_spacing', 'المسافة بين الشقوق', 2, 10, .1, 5, 'μm'));
+      ensure(defaultControl('slit_count', 'عدد الشقوق', 2, 8, 1, 5, 'شق'));
+      ensure(defaultControl('slit_width', 'عرض الشق', .1, .8, .05, .35, 'μm'));
+      ensure(defaultControl('distance', 'بعد الشاشة', .5, 2.5, .05, 1.5, 'm'));
     }
     if (!controls.length) controls.push(defaultControl('rate', 'معدل الحركة', .1, 3, .05, 1, '×'));
     if (controls.length > 7) controls = controls.slice(0, 7);
@@ -156,7 +162,7 @@
       id: 'generated',
       field: spec.field === 'biology' ? 'bio' : 'phy',
       fieldLabel: ({ physics: 'الفيزياء', biology: 'الأحياء', chemistry: 'الكيمياء', astronomy: 'الفلك', mathematics: 'الرياضيات' })[spec.field],
-      icon: spec.engine === 'tokamak' ? 'atom' : spec.engine === 'wave' ? 'activity' : spec.engine === 'pendulum' ? 'clock' : spec.engine === 'interference' ? 'waves' : spec.engine === 'induction' ? 'zap' : 'shapes',
+      icon: spec.engine === 'tokamak' ? 'atom' : spec.engine === 'wave' ? 'activity' : spec.engine === 'pendulum' ? 'clock' : spec.engine === 'interference' ? 'waves' : spec.engine === 'induction' ? 'zap' : spec.engine === 'diffraction' ? 'scan-eye' : 'shapes',
       title: spec.title,
       short: spec.summary,
       spec: spec,
@@ -194,6 +200,12 @@
           rows.push(['أقصى جهد مستحث', peak.toFixed(2) + ' V']);
           rows.push(['التيار اللحظي', current.toFixed(2) + ' A']);
           rows.push(['ارتباط الفيض المغناطيسي', fluxLinkage.toFixed(3) + ' Wb·turn']);
+        }
+        if (spec.engine === 'diffraction') {
+          var ratio = param(prm, 'wavelength', 550) / (param(prm, 'grating_spacing', 5) * 1000);
+          var firstOrder = ratio <= 1 ? (Math.asin(ratio) * 180 / Math.PI).toFixed(2) + '°' : 'غير متاح';
+          rows.push(['زاوية الرتبة المضيئة الأولى', firstOrder]);
+          rows.push(['أقصى رتبة ممكنة', String(Math.floor(1 / Math.max(1e-9, ratio)))]);
         }
         return rows;
       };
@@ -839,7 +851,189 @@
         updateModel(0);
         st.sph.r = 12;
         st.place();
-      } else if (spec.engine === 'wave') {
+      } else if (spec.engine === 'diffraction') {
+        // Fraunhofer diffraction from a finite-width N-slit grating.
+        var screenW = 5.35, screenH = 3.35, screenZ = -4.25, gratingZ = .72;
+        var screenGeo = new T.PlaneGeometry(screenW, screenH, 300, 8);
+        var screenColors = new Float32Array(screenGeo.attributes.position.count * 3);
+        screenGeo.setAttribute('color', new T.BufferAttribute(screenColors, 3));
+        var screenMat = new T.MeshPhongMaterial({
+          vertexColors: true, side: T.DoubleSide, shininess: 62,
+          emissive: 0x06182a, emissiveIntensity: .65
+        });
+        var screen = new T.Mesh(screenGeo, screenMat);
+        screen.position.z = screenZ;
+        S.add(screen);
+
+        var frameMat = new T.MeshPhongMaterial({ color: 0x536b80, metalness: .76, shininess: 86 });
+        [
+          { x: 0, y: screenH / 2 + .07, w: screenW + .2, h: .13 },
+          { x: 0, y: -screenH / 2 - .07, w: screenW + .2, h: .13 },
+          { x: -screenW / 2 - .065, y: 0, w: .13, h: screenH },
+          { x: screenW / 2 + .065, y: 0, w: .13, h: screenH }
+        ].forEach(function (p) {
+          var frame = new T.Mesh(new T.BoxGeometry(p.w, p.h, .12), frameMat);
+          frame.position.set(p.x, p.y, screenZ + .055);
+          S.add(frame);
+        });
+
+        // Adjustable diffraction grating: opaque bars leave equally spaced vertical slits.
+        var gratingGroup = new T.Group();
+        S.add(gratingGroup);
+        var barMat = new T.MeshPhongMaterial({
+          color: 0x263b4c, metalness: .82, shininess: 82, specular: 0x8fb6cc
+        });
+        var slitGlowMat = new T.MeshBasicMaterial({ color: 0x65e8ff });
+        var slitLineGeo = new T.BoxGeometry(.018, 3.5, .22);
+        var slitWorldCenters = [];
+        var gratingSignature = '';
+        function rebuildGrating() {
+          while (gratingGroup.children.length) {
+            var old = gratingGroup.children[0];
+            gratingGroup.remove(old);
+            if (old.geometry && old.geometry !== slitLineGeo) old.geometry.dispose();
+            if (old.material) old.material.dispose();
+          }
+          slitWorldCenters = [];
+          var N = Math.round(param(prm, 'slit_count', 5));
+          var d = param(prm, 'grating_spacing', 5);
+          var visualGap = .22 + (d - 2) / 8 * .16;
+          var slitWidth = .035 + (param(prm, 'slit_width', .35) - .1) / .7 * .025;
+          var totalWidth = (N - 1) * visualGap + .72;
+          var leftEdge = -totalWidth / 2, cursor = leftEdge, rightEdge = totalWidth / 2;
+          for (var k = 0; k < N; k++) {
+            var cx = (k - (N - 1) / 2) * visualGap;
+            slitWorldCenters.push(cx);
+            var barRight = cx - slitWidth / 2;
+            if (barRight > cursor) {
+              var bar = new T.Mesh(new T.BoxGeometry(barRight - cursor, 3.5, .22), barMat);
+              bar.position.set((cursor + barRight) / 2, 0, gratingZ);
+              gratingGroup.add(bar);
+            }
+            var edgeL = new T.Mesh(slitLineGeo, slitGlowMat);
+            edgeL.position.set(cx - slitWidth / 2, 0, gratingZ);
+            gratingGroup.add(edgeL);
+            var edgeR = new T.Mesh(slitLineGeo, slitGlowMat);
+            edgeR.position.set(cx + slitWidth / 2, 0, gratingZ);
+            gratingGroup.add(edgeR);
+            cursor = cx + slitWidth / 2;
+          }
+          if (cursor < rightEdge) {
+            var finalBar = new T.Mesh(new T.BoxGeometry(rightEdge - cursor, 3.5, .22), barMat);
+            finalBar.position.set((cursor + rightEdge) / 2, 0, gratingZ);
+            gratingGroup.add(finalBar);
+          }
+          gratingSignature = N + '|' + d + '|' + slitWidth;
+        }
+        rebuildGrating();
+
+        // Coherent source and incoming beam.
+        var source = new T.Mesh(new T.SphereGeometry(.17, 20, 16),
+          new T.MeshPhongMaterial({ color: 0xf2fbff, emissive: 0x2b9ecb, emissiveIntensity: 1.3 }));
+        source.position.set(0, 0, 2.35);
+        S.add(source);
+        var sourceLight = new T.PointLight(0x65dfff, 1.35, 7);
+        sourceLight.position.copy(source.position);
+        S.add(sourceLight);
+        var beamMat = new T.MeshBasicMaterial({
+          color: 0x62dfff, transparent: true, opacity: .095,
+          side: T.DoubleSide, blending: T.AdditiveBlending, depthWrite: false
+        });
+        var beam = new T.Mesh(new T.PlaneGeometry(1.7, 3.1), beamMat);
+        beam.position.set(0, 0, 1.54);
+        S.add(beam);
+
+        // Reusable wavefront geometry, repeated for each slit.
+        var ringGeometry = new T.TorusGeometry(.28, .012, 6, 36);
+        var ringMats = [
+          new T.MeshBasicMaterial({ color: 0x52dcff, transparent: true, opacity: .42, blending: T.AdditiveBlending, depthWrite: false }),
+          new T.MeshBasicMaterial({ color: 0x9a8cff, transparent: true, opacity: .34, blending: T.AdditiveBlending, depthWrite: false })
+        ];
+        var ringGroup = new T.Group();
+        S.add(ringGroup);
+        var wavefronts = [];
+        function rebuildWavefronts() {
+          while (ringGroup.children.length) ringGroup.remove(ringGroup.children[0]);
+          wavefronts = [];
+          slitWorldCenters.forEach(function (cx, si) {
+            for (var wi = 0; wi < 2; wi++) {
+              var mesh = new T.Mesh(ringGeometry, ringMats[(si + wi) % 2]);
+              mesh.position.set(cx, 0, gratingZ - .18);
+              ringGroup.add(mesh);
+              wavefronts.push({ mesh: mesh, phase: wi * .5 + si * .13 });
+            }
+          });
+        }
+        rebuildWavefronts();
+
+        // Monochromatic wavelength approximation for the displayed screen tint.
+        function wavelengthRGB(nm) {
+          var r = 0, g = 0, b = 0;
+          if (nm >= 380 && nm < 440) { r = (440 - nm) / 60; b = 1; }
+          else if (nm < 490) { g = (nm - 440) / 50; b = 1; }
+          else if (nm < 510) { g = 1; b = (510 - nm) / 20; }
+          else if (nm < 580) { r = (nm - 510) / 70; g = 1; }
+          else if (nm < 645) { r = 1; g = (645 - nm) / 65; }
+          else { r = 1; }
+          return new T.Color(clamp(r, 0, 1), clamp(g, 0, 1), clamp(b, 0, 1));
+        }
+        var patternSignature = '';
+        function updateDiffractionPattern() {
+          var lambda = param(prm, 'wavelength', 550) * 1e-9;
+          var d = param(prm, 'grating_spacing', 5) * 1e-6;
+          var a = param(prm, 'slit_width', .35) * 1e-6;
+          var N = Math.round(param(prm, 'slit_count', 5));
+          var L = param(prm, 'distance', 1.5);
+          var signature = lambda + '|' + d + '|' + a + '|' + N + '|' + L;
+          if (signature === patternSignature) return;
+          patternSignature = signature;
+          var pos = screenGeo.attributes.position;
+          var base = wavelengthRGB(lambda * 1e9);
+          for (var vi = 0; vi < pos.count; vi++) {
+            var xWorld = pos.getX(vi);
+            var xPhysical = (xWorld / (screenW / 2)) * .22;
+            var sinTheta = xPhysical / Math.sqrt(L * L + xPhysical * xPhysical);
+            var beta = Math.PI * d * sinTheta / lambda;
+            var alpha = Math.PI * a * sinTheta / lambda;
+            var denominator = Math.sin(beta);
+            var interference = Math.abs(denominator) < 1e-7
+              ? 1 : Math.pow(Math.sin(N * beta) / (N * denominator), 2);
+            var diffraction = Math.abs(alpha) < 1e-7
+              ? 1 : Math.pow(Math.sin(alpha) / alpha, 2);
+            var intensity = clamp(interference * diffraction, 0, 1);
+            var shade = .008 + Math.pow(intensity, .72) * .98;
+            var j = vi * 3;
+            screenColors[j] = .006 + base.r * shade;
+            screenColors[j + 1] = .009 + base.g * shade;
+            screenColors[j + 2] = .02 + base.b * shade;
+          }
+          screenGeo.attributes.color.needsUpdate = true;
+        }
+
+        updateModel = function () {
+          var currentN = Math.round(param(prm, 'slit_count', 5));
+          var dNow = param(prm, 'grating_spacing', 5);
+          var wNow = param(prm, 'slit_width', .35);
+          var gSig = currentN + '|' + dNow + '|' + (.035 + (wNow - .1) / .7 * .025);
+          if (gSig !== gratingSignature) {
+            rebuildGrating();
+            rebuildWavefronts();
+          }
+          updateDiffractionPattern();
+          wavefronts.forEach(function (entry) {
+            var cycle = (time * .22 + entry.phase) % 1;
+            var scale = .55 + cycle * 1.35;
+            entry.mesh.scale.set(scale, scale, 1);
+            entry.mesh.position.z = gratingZ - .24 - cycle * 3.65;
+            entry.mesh.material.opacity = .5 * (1 - cycle) + .04;
+          });
+          sourceLight.intensity = .9 + .35 * (1 + Math.sin(time * 2.8));
+        };
+        resetModel = function () { time = 0; updateModel(0); };
+        updateModel(0);
+        st.sph.r = 10.8;
+        st.place();
+
         var length = 12, N = 260, data = new Float32Array((N + 1) * 3), geo = new T.BufferGeometry();
         geo.setAttribute('position', new T.BufferAttribute(data, 3));
         var wave = new T.Line(geo, new T.LineBasicMaterial({ color: 0x38bdf8, linewidth: 2 }));
@@ -988,6 +1182,7 @@
           if (spec.engine === 'wave') return 'يمثل الخط موجة جيبية مثالية. غيّر السعة والتردد وسرعة الانتشار ولاحظ تغير شكل الموجة وطورها.';
           if (spec.engine === 'induction') return 'يعرض النموذج قانون فاراداي للحث الكهرومغناطيسي: ε = −N dΦ/dt. عند دوران الملف في مجال منتظم يتغير الفيض Φ = BA cos(ωt)، فينشأ جهد متناوب سعته القصوى εmax = NBAω. المقاومة تحدد التيار اللحظي I = ε/R. النموذج مثالي ولا يحسب الفقد أو المجال غير المنتظم أو تأثير الحمل على سرعة الدوران.';
           if (spec.engine === 'interference') return 'تجربة شقي يونغ: تتراكب موجتان ضوئيتان مترابطتان فتظهر أهداب مضيئة ومعتمة على الشاشة. يحسب النموذج شدة الأهداب بالعلاقة I ∝ cos²(π d x / λ L)، ويعرض المسافة بين الأهداب Δy = λL/d. النموذج يفترض ضوءاً أحادي اللون وشقين مثاليين وتقريب المجال البعيد، ولا يحسب حيود الشق ذي العرض المحدود.';
+          if (spec.engine === 'diffraction') return 'محزوز الحيود يتكون من عدد كبير من الشقوق المتوازية. تتحدد الاتجاهات الرئيسية المضيئة بشرط d sin(θ) = mλ، بينما يحدد عرض الشق غلاف الحيود. يحسب النموذج نمط فراونهوفر لشقوق متساوية مثالية: I ∝ sinc²(α) [sin(Nβ)/(N sin(β))]². غيّر الطول الموجي وتباعد الشقوق وعددها وعرضها وبعد الشاشة. نهمل خشونة المحزوز والانعكاسات والفقد.';
           return spec.assumptions || spec.principle || spec.summary;
         },
         dispose: function () { st.dispose(); }
