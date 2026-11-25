@@ -93,6 +93,8 @@ jobs:
             "} else if (spec.engine === 'rlc') {"
           ];
           for (const marker of branchMarkers) assert.ok(engineSource.includes(marker), "Missing simulation branch: " + marker);
+          assert.ok(engineSource.includes("function maxwellPdfRatio"), "Ideal gas Maxwell speed curve is missing");
+          assert.ok(engineSource.includes("var chartBins = 12"), "Ideal gas speed histogram is missing");
           const sandbox = { window: {} };
           vm.createContext(sandbox);
           vm.runInContext(engineSource, sandbox);
