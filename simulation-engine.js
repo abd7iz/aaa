@@ -892,7 +892,6 @@
             var old = gratingGroup.children[0];
             gratingGroup.remove(old);
             if (old.geometry && old.geometry !== slitLineGeo) old.geometry.dispose();
-            if (old.material) old.material.dispose();
           }
           slitWorldCenters = [];
           var N = Math.round(param(prm, 'slit_count', 5));
