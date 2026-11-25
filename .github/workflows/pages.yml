@@ -96,7 +96,8 @@ jobs:
             "} else if (spec.engine === 'collision') {",
             "} else if (spec.engine === 'titration') {",
             "} else if (spec.engine === 'electrostatic') {",
-            "} else if (spec.engine === 'venturi') {"
+            "} else if (spec.engine === 'venturi') {",
+            "} else if (spec.engine === 'buoyancy') {"
           ];
           for (const marker of branchMarkers) assert.ok(engineSource.includes(marker), "Missing simulation branch: " + marker);
           assert.ok(engineSource.includes("function maxwellPdfRatio"), "Ideal gas Maxwell speed curve is missing");
@@ -406,7 +407,28 @@ jobs:
           const uniformFlow = api.venturiState(2, .1, .1, 1000, 150);
           assert.ok(Math.abs(uniformFlow.throatSpeed - 2) < 1e-12);
           assert.ok(Math.abs(uniformFlow.pressureDropKPa) < 1e-12);
-          console.log('Optics, atomic spectra, gas, RLC, Doppler, collisions, titration, electrostatic and Venturi physics/schema checks passed.');
+          const buoyancy = api.normalizeSpec({
+            schema: 'mukhtabar-sim-v1',
+            title: 'مبدأ أرخميدس',
+            field: 'physics',
+            engine: 'buoyancy',
+            controls: []
+          });
+          assert.equal(buoyancy.engine, 'buoyancy');
+          assert.deepEqual(Array.from(buoyancy.controls, c => c.key), ['object_density', 'fluid_density', 'volume', 'gravity']);
+          assert.deepEqual(Array.from(buoyancy.controls, c => c.value), [600, 1000, 0.01, 9.81]);
+          const floating = api.archimedesState(600, 1000, 0.01, 9.81);
+          const sinking = api.archimedesState(1200, 1000, 0.01, 9.81);
+          const neutral = api.archimedesState(1000, 1000, 0.01, 9.81);
+          assert.ok(Math.abs(floating.submergedFraction - .6) < 1e-12);
+          assert.ok(Math.abs(floating.buoyantForce - floating.weight) < 1e-12);
+          assert.equal(floating.state, 'floating');
+          assert.ok(Math.abs(sinking.netDownwardForce - 19.62) < 1e-9);
+          assert.equal(sinking.state, 'sinking');
+          assert.equal(sinking.submergedFraction, 1);
+          assert.ok(Math.abs(neutral.netDownwardForce) < 1e-12);
+          assert.equal(neutral.state, 'neutral');
+          console.log('Optics, gas, circuits, waves, collisions, chemistry, fields, fluids and buoyancy physics/schema checks passed.');
           NODE
           node --check ai-worker/worker.js
           node --check ai-config.js
