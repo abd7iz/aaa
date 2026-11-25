@@ -122,3 +122,13 @@ Current UI asset version: v43
 ## Branch integrity
 - Restored independent conditional branches for all dedicated renderers: tokamak, interference, induction, bohr, decay, photoelectric, polarization, dipole, diffraction, wave, blackbody and pendulum.
 - CI now verifies all dedicated branch headers and tests key physics helpers.
+
+
+## RC charging and discharging
+- Engine ID: rc
+- Defaults: V=12 V, R=10 kΩ, C=100 μF, mode=charging.
+- Time constant τ=RC=1 s at default values.
+- Charging Vc=V(1−e^(−t/τ)); discharging Vc=V0e^(−t/τ).
+- Displays a circuit and exponential capacitor-voltage curve; readouts include current, charge and stored energy.
+- Parameter/mode changes restart the transient from t=0.
+- Assumptions: ideal RC circuit; leakage and source internal resistance are omitted.
