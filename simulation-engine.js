@@ -193,8 +193,8 @@
           return clamp((param(prm, key, c.value) - c.min) / Math.max(.0001, c.max - c.min), 0, 1);
         }
         // The vacuum vessel shares the plasma torus axis (vertical Y).
-        var vessel = new T.Mesh(new T.TorusGeometry(R, tube * 1.3, 28, 112),
-          new T.MeshPhongMaterial({ color: 0x45647b, transparent: true, opacity: .13, shininess: 95, side: T.DoubleSide, depthWrite: false }));
+        var vessel = new T.Mesh(new T.TorusGeometry(R, tube * 1.08, 24, 112),
+          new T.MeshPhongMaterial({ color: 0x5b8198, transparent: true, opacity: .075, shininess: 110, side: T.DoubleSide, depthWrite: false }));
         vessel.rotation.x = Math.PI / 2;
         S.add(vessel);
 
@@ -251,23 +251,30 @@
         // D-shaped toroidal-field coils surround the chamber vertically.
         // Each coil sits in a radial/vertical plane, rather than appearing as a small ring.
         var coilMaterial = new T.MeshPhongMaterial({
-          color: 0xa9824d, emissive: 0x1b1005, metalness: .68, shininess: 78
+          color: 0x9b8060, emissive: 0x100b05, metalness: .78, shininess: 92
         });
         for (var c = 0; c < 12; c++) {
           var coilAngle = c / 12 * Math.PI * 2;
           var coilPoints = [];
-          for (var cp = 0; cp < 120; cp++) {
-            var t = cp / 120 * Math.PI * 2;
-            var radial = R + .68 + .95 * Math.cos(t) + .10 * Math.cos(2 * t);
-            var vertical = 2.35 * Math.sin(t);
-            coilPoints.push(new T.Vector3(
-              radial * Math.cos(coilAngle),
-              vertical,
-              radial * Math.sin(coilAngle)
-            ));
+          var innerR = R - .82, outerR = R + 1.02, halfH = 1.72;
+          // D-shaped cross-section: straight inner leg and a broad curved outer return.
+          coilPoints.push(new T.Vector3(innerR * Math.cos(coilAngle), -halfH, innerR * Math.sin(coilAngle)));
+          coilPoints.push(new T.Vector3(innerR * Math.cos(coilAngle), halfH, innerR * Math.sin(coilAngle)));
+          for (var top = 1; top <= 30; top++) {
+            var uTop = Math.PI * top / 30;
+            var rTop = innerR + (outerR - innerR) * (1 - Math.cos(uTop)) * .5;
+            var yTop = halfH + .28 * Math.sin(uTop);
+            coilPoints.push(new T.Vector3(rTop * Math.cos(coilAngle), yTop, rTop * Math.sin(coilAngle)));
+          }
+          coilPoints.push(new T.Vector3(outerR * Math.cos(coilAngle), -halfH, outerR * Math.sin(coilAngle)));
+          for (var bot = 1; bot < 30; bot++) {
+            var uBot = Math.PI * bot / 30;
+            var rBot = outerR - (outerR - innerR) * (1 - Math.cos(uBot)) * .5;
+            var yBot = -halfH - .28 * Math.sin(uBot);
+            coilPoints.push(new T.Vector3(rBot * Math.cos(coilAngle), yBot, rBot * Math.sin(coilAngle)));
           }
           var coilCurve = new T.CatmullRomCurve3(coilPoints, true, 'centripetal');
-          var coil = new T.Mesh(new T.TubeGeometry(coilCurve, 144, .045, 7, true), coilMaterial);
+          var coil = new T.Mesh(new T.TubeGeometry(coilCurve, 120, .026, 6, true), coilMaterial);
           S.add(coil);
         }
 
@@ -441,7 +448,7 @@
         };
         resetModel = function () { time = 0; updateModel(0); };
         updateModel(0);
-        st.sph.r = 14; st.place();
+        st.sph.r = 16; st.place();
       } else if (spec.engine === 'wave') {
         var length = 12, N = 260, data = new Float32Array((N + 1) * 3), geo = new T.BufferGeometry();
         geo.setAttribute('position', new T.BufferAttribute(data, 3));
