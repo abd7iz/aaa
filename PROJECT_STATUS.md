@@ -1,7 +1,7 @@
 # MUKHTABAR — Project Status
 
 Last updated: 2026-11-25
-Current UI asset version: v30
+Current UI asset version: v32
 
 ## Repository
 - Code: https://github.com/abd7iz/aaa
@@ -19,7 +19,8 @@ Current UI asset version: v30
 6. Electromagnetic induction generator — rotating copper coil between N/S poles, magnetic field lines, current-carrier indicators and sine-wave oscilloscope; controls field, coil area, turns, angular_speed and resistance; readouts include flux linkage, instantaneous/peak emf and current.
 7. Fraunhofer diffraction grating — multiple parallel slits, dynamic wavefronts, calculated multi-slit intensity with finite-width slit envelope; controls wavelength, grating spacing, slit count, slit width and screen distance; readouts include first-order angle and highest possible order.
 8. Magnetic dipole — analytic dipole field lines, a sampled 2D vector-arrow map, animated direction tracers and movable probe showing |B|, Bx and By; controls magnetic moment, probe radius, probe angle and line count.
-9. Sinusoidal wave, pendulum and generated 3D scene engines.
+9. Photoelectric effect — photon/electron visualization with threshold, maximum kinetic energy and stopping-voltage readouts.
+10. Sinusoidal wave, pendulum and generated 3D scene engines.
 
 ## Physics models
 - Double slit: `I ∝ cos²(π d x / λL)`; defaults 550 nm, 0.25 mm separation and 1.5 m distance; expected fringe spacing 3.30 mm.
@@ -33,6 +34,14 @@ Current UI asset version: v30
 - Model: Malus' law with unpolarized source; intensity after first polarizer is I₀/2, then I=(I₀/2)cos²θ.
 - Displays two linear polarizers, rotating analyzer, light beam and output screen brightness.
 - Assumes ideal polarizers; absorption, reflections and partial polarization are omitted.
+
+## Photoelectric effect
+- Engine ID: photoelectric
+- Defaults: λ=365 nm, work function φ=2.3 eV, intensity=75%.
+- Photon energy: Eγ=1239.841984/λ(nm) eV.
+- Maximum kinetic energy: Kmax=max(0,Eγ−φ); numerical stopping potential equals Kmax in volts.
+- Photon wavelength controls energy; intensity controls emitted-electron count, not kinetic energy.
+- Assumptions: ideal surface with a single work function; electron energy distribution and surface details are not modelled.
 
 ## Validation
 - CI parses all inline app scripts, simulation-engine.js, Worker and config.
