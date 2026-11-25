@@ -51,7 +51,7 @@
     if (!raw || typeof raw !== 'object' || raw.schema !== 'mukhtabar-sim-v1') {
       throw new Error('صيغة التجربة التي أنشأها الذكاء الاصطناعي غير معروفة.');
     }
-    var engine = ['tokamak', 'wave', 'pendulum', 'interference', 'induction', 'diffraction', 'dipole', 'polarization', 'photoelectric', 'decay', 'bohr', 'blackbody', 'idealgas', 'rlc', 'scene'].indexOf(raw.engine) >= 0 ? raw.engine : null;
+    var engine = ['tokamak', 'wave', 'pendulum', 'interference', 'induction', 'diffraction', 'dipole', 'polarization', 'photoelectric', 'decay', 'bohr', 'blackbody', 'idealgas', 'rlc', 'doppler', 'scene'].indexOf(raw.engine) >= 0 ? raw.engine : null;
     if (!engine) throw new Error('نوع المحاكاة غير مدعوم في محرك المختبر الحالي.');
     var field = FIELDS.indexOf(raw.field) >= 0 ? raw.field : 'physics';
     var used = {}, controls = [];
@@ -128,6 +128,11 @@
       ensure(defaultControl('inductance', 'الحث L', 10, 500, 5, 100, 'mH'));
       ensure(defaultControl('capacitance', 'السعة C', 10, 1000, 10, 100, 'μF'));
       ensure(defaultControl('frequency', 'تردد المصدر', 5, 200, 1, 50, 'Hz'));
+    } else if (engine === 'doppler') {
+      ensure(defaultControl('frequency', 'تردد المصدر', 100, 1000, 10, 440, 'Hz'));
+      ensure(defaultControl('source_velocity', 'سرعة المصدر (+ باتجاه المستمع)', -100, 100, 1, 30, 'm/s'));
+      ensure(defaultControl('observer_toward', 'سرعة المستمع نحو المصدر', 0, 80, 1, 0, 'm/s'));
+      ensure(defaultControl('sound_speed', 'سرعة الصوت', 300, 400, 1, 343, 'm/s'));
     }
     if (!controls.length) controls.push(defaultControl('rate', 'معدل الحركة', .1, 3, .05, 1, '×'));
     if (controls.length > 7) controls = controls.slice(0, 7);
@@ -315,6 +320,22 @@
     };
   };
 
+  ENGINE.dopplerShift = function (sourceFrequency, soundSpeed, sourceVelocity, observerToward) {
+    var f = Math.max(0, finite(sourceFrequency, 440));
+    var c = Math.max(1, finite(soundSpeed, 343));
+    var vs = finite(sourceVelocity, 0);
+    var vo = Math.max(0, finite(observerToward, 0));
+    var denominator = Math.max(.001, c - vs);
+    var observed = f * (c + vo) / denominator;
+    return {
+      sourceFrequency: f,
+      observedFrequency: observed,
+      sourceWavelength: c / Math.max(.001, f),
+      observedWavelength: c / Math.max(.001, observed),
+      frequencyRatio: observed / Math.max(.001, f)
+    };
+  };
+
   function paramsFrom(def, state) {
     var out = {};
     def.params.forEach(function (p) {
@@ -334,7 +355,7 @@
       id: 'generated',
       field: spec.field === 'biology' ? 'bio' : 'phy',
       fieldLabel: ({ physics: 'الفيزياء', biology: 'الأحياء', chemistry: 'الكيمياء', astronomy: 'الفلك', mathematics: 'الرياضيات' })[spec.field],
-      icon: spec.engine === 'tokamak' ? 'atom' : spec.engine === 'wave' ? 'activity' : spec.engine === 'pendulum' ? 'clock' : spec.engine === 'interference' ? 'waves' : spec.engine === 'induction' ? 'zap' : spec.engine === 'diffraction' ? 'scan-eye' : spec.engine === 'dipole' ? 'magnet' : spec.engine === 'polarization' ? 'sun' : spec.engine === 'photoelectric' ? 'zap' : spec.engine === 'decay' ? 'atom' : spec.engine === 'bohr' ? 'orbit' : spec.engine === 'blackbody' ? 'thermometer-sun' : spec.engine === 'idealgas' ? 'gauge' : spec.engine === 'rlc' ? 'activity' : 'shapes',
+      icon: spec.engine === 'tokamak' ? 'atom' : spec.engine === 'wave' ? 'activity' : spec.engine === 'pendulum' ? 'clock' : spec.engine === 'interference' ? 'waves' : spec.engine === 'induction' ? 'zap' : spec.engine === 'diffraction' ? 'scan-eye' : spec.engine === 'dipole' ? 'magnet' : spec.engine === 'polarization' ? 'sun' : spec.engine === 'photoelectric' ? 'zap' : spec.engine === 'decay' ? 'atom' : spec.engine === 'bohr' ? 'orbit' : spec.engine === 'blackbody' ? 'thermometer-sun' : spec.engine === 'idealgas' ? 'gauge' : spec.engine === 'rlc' ? 'activity' : spec.engine === 'doppler' ? 'audio-lines' : 'shapes',
       title: spec.title,
       short: spec.summary,
       spec: spec,
@@ -472,6 +493,19 @@
           rows.push(['تردد الرنين', circuitState.resonanceFrequency.toFixed(2) + ' Hz']);
           rows.push(['عامل الجودة Q', circuitState.qualityFactor.toFixed(2)]);
           rows.push(['القدرة الحقيقية', circuitState.realPower.toFixed(2) + ' W']);
+        }
+        if (spec.engine === 'doppler') {
+          var shifted = ENGINE.dopplerShift(
+            param(prm, 'frequency', 440),
+            param(prm, 'sound_speed', 343),
+            param(prm, 'source_velocity', 30),
+            param(prm, 'observer_toward', 0)
+          );
+          rows.push(['تردد المصدر', shifted.sourceFrequency.toFixed(1) + ' Hz']);
+          rows.push(['التردد المسموع', shifted.observedFrequency.toFixed(1) + ' Hz']);
+          rows.push(['نسبة الانزياح', ((shifted.frequencyRatio - 1) * 100).toFixed(1) + '%']);
+          rows.push(['طول موجة المصدر', shifted.sourceWavelength.toFixed(3) + ' m']);
+          rows.push(['طول الموجة عند المستمع', shifted.observedWavelength.toFixed(3) + ' m']);
         }
         return rows;
       };
@@ -2538,6 +2572,86 @@
         updateModel(0);
         st.sph.r = 10.8;
         st.place();
+      } else if (spec.engine === 'doppler') {
+        // Moving acoustic source, receiver and circular wavefronts.
+        var floorMat = new T.MeshPhongMaterial({ color: 0x34485a, metalness: .45, shininess: 35 });
+        var ground = new T.Mesh(new T.BoxGeometry(6.2, .08, .7), floorMat);
+        ground.position.set(0, -1.35, 0);
+        S.add(ground);
+
+        var sourceGroup = new T.Group();
+        S.add(sourceGroup);
+        var sourceBody = new T.Mesh(new T.SphereGeometry(.23, 22, 18),
+          new T.MeshPhongMaterial({ color: 0xb94b4b, emissive: 0x3b0909, shininess: 82 }));
+        sourceGroup.add(sourceBody);
+        var speaker = new T.Mesh(new T.ConeGeometry(.19, .35, 28),
+          new T.MeshPhongMaterial({ color: 0xd6e1e7, metalness: .5, shininess: 72 }));
+        speaker.rotation.z = -Math.PI / 2;
+        speaker.position.x = .29;
+        sourceGroup.add(speaker);
+
+        var observerGroup = new T.Group();
+        S.add(observerGroup);
+        var observerBody = new T.Mesh(new T.SphereGeometry(.24, 22, 18),
+          new T.MeshPhongMaterial({ color: 0x3f91c5, emissive: 0x0b2942, shininess: 85 }));
+        observerGroup.add(observerBody);
+        var ear = new T.Mesh(new T.TorusGeometry(.2, .035, 8, 32),
+          new T.MeshPhongMaterial({ color: 0xa3d4ee, metalness: .5, shininess: 80 }));
+        ear.position.x = -.1;
+        observerGroup.add(ear);
+
+        var waveGroup = new T.Group();
+        S.add(waveGroup);
+        var waveMaterials = [
+          new T.MeshBasicMaterial({ color: 0x55dfff, transparent: true, opacity: .6, blending: T.AdditiveBlending, depthWrite: false }),
+          new T.MeshBasicMaterial({ color: 0xff9a6c, transparent: true, opacity: .52, blending: T.AdditiveBlending, depthWrite: false })
+        ];
+        var waveRings = [];
+        for (var wr = 0; wr < 8; wr++) {
+          var waveRing = new T.Mesh(new T.TorusGeometry(1, .018, 6, 56), waveMaterials[wr % 2]);
+          waveGroup.add(waveRing);
+          waveRings.push(waveRing);
+        }
+
+        var directionArrow = new T.ArrowHelper(
+          new T.Vector3(1, 0, 0), new T.Vector3(), .65, 0xffcf70, .18, .12
+        );
+        S.add(directionArrow);
+
+        var waveFront = new T.PointLight(0x4bdcff, .8, 4);
+        S.add(waveFront);
+        function dopplerVisuals() {
+          var sourceV = param(prm, 'source_velocity', 30);
+          var soundV = param(prm, 'sound_speed', 343);
+          var frequency = param(prm, 'frequency', 440);
+          var visualSoundSpeed = 1.45;
+          var visualSourceSpeed = sourceV / soundV * visualSoundSpeed;
+          var period = 1.05;
+          var path = ((time * visualSourceSpeed + 1.45) % 2.9 + 2.9) % 2.9;
+          var sourceX = -1.45 + path;
+          sourceGroup.position.set(sourceX, -.15, .15);
+          observerGroup.position.set(2.05, -.15, .15);
+          var movingDirection = sourceV >= 0 ? 1 : -1;
+          directionArrow.position.set(sourceX, -.15, .15);
+          directionArrow.setDirection(new T.Vector3(movingDirection, 0, 0));
+          directionArrow.setLength(.45 + Math.abs(sourceV) / 100 * .4, .17, .1);
+
+          for (var ri = 0; ri < waveRings.length; ri++) {
+            var age = ((time * .24 + ri / waveRings.length) % 1) * period;
+            var bornX = sourceX - visualSourceSpeed * age;
+            var radius = .12 + visualSoundSpeed * age;
+            waveRings[ri].position.set(bornX, -.15, .1 - ri * .001);
+            waveRings[ri].scale.set(radius, radius, 1);
+            waveRings[ri].material.opacity = .58 * (1 - age / period) + .05;
+          }
+          waveFront.position.set(sourceX, .45, .1);
+          waveFront.intensity = .35 + .55 * (1 + Math.sin(time * Math.PI * frequency / 110));
+        }
+        updateModel = function () { dopplerVisuals(); };
+        resetModel = function () { time = 0; updateModel(0); };
+        updateModel(0);
+        st.sph.r = 9.5;
+        st.place();
       } else {
         var meshes = [];
         spec.objects.forEach(function (o) {
@@ -2618,6 +2732,7 @@
           if (spec.engine === 'blackbody') return 'يصف قانون بلانك التوزيع الطيفي لإشعاع الجسم الأسود حسب الطول الموجي ودرجة الحرارة. تنتقل قمة الطيف مع الحرارة وفق قانون فين λmax = 2.8978×10⁶/T nm، بينما تتناسب القدرة الكلية المشعة لكل وحدة مساحة مع T⁴ وفق قانون ستيفان–بولتزمان. الرسم يعرض طيفاً نسبياً ضمن نطاق 100–2400 nm؛ والقدرة الكلية المعروضة محسوبة لمساحة السطح المختارة. النموذج يفترض باعثاً مثالياً بمعامل انبعاث يساوي واحداً.';
           if (spec.engine === 'idealgas') return 'يطبق النموذج قانون الغاز المثالي PV=nRT. مكونات سرعة الجزيئات تُسحب عشوائياً من توزيعات غاوسية مستقلة، فتنتج تقريباً توزيع ماكسويل–بولتزمان للسرعات. الرسم يقارن مدرج السرعات المشاهد بالمنحنى النظري. تزداد السرعات المميزة مع الجذر التربيعي لدرجة الحرارة. تُعرض السرعة الأكثر احتمالاً والمتوسطة وRMS. كمية الغاز تحدد عدد الجسيمات المعروضة، والحجم يحرك المكبس. نهمل التصادمات البينية التفصيلية وتغير التوزيع بسببها.';
           if (spec.engine === 'rlc') return 'تتصل المقاومة والملف والمكثف على التوالي بمصدر متناوب. المفاعلة الحثية XL=ωL والمفاعلة السعوية XC=1/(ωC)، والممانعة Z=√(R²+(XL−XC)²). يبلغ التيار أعظمه قرب تردد الرنين f0=1/(2π√LC). يعرض المنظار موجتي الجهد والتيار وفرق الطور بينهما. نهمل مقاومة الملف الداخلية والطفيليات وتأثير الحمل غير المثالي.';
+          if (spec.engine === 'doppler') return 'يتغير التردد المسموع بسبب الحركة النسبية بين المصدر والمستمع. مع اعتبار سرعة المصدر موجبة باتجاه المستمع وسرعة المستمع موجبة باتجاه المصدر: f′=f(c+vo)/(c−vs). عند الاقتراب تتقارب جبهات الموجة أمام المصدر ويزداد التردد، وعند الابتعاد تتباعد ويقل التردد. النموذج يستخدم موجات دائرية توضيحية وصوتاً في وسط ساكن، ولا يحسب انعكاس الصوت أو الرياح أو تغيّر سرعة الصوت مع الحرارة.';
           return spec.assumptions || spec.principle || spec.summary;
         },
         dispose: function () { st.dispose(); }
