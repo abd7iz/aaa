@@ -1,7 +1,7 @@
 # MUKHTABAR — Project Status
 
 Last updated: 2026-11-25
-Current UI asset version: v37
+Current UI asset version: v38
 
 ## Repository
 - Code: https://github.com/abd7iz/aaa
@@ -22,7 +22,8 @@ Current UI asset version: v37
 9. Photoelectric effect — photon/electron visualization with threshold, maximum kinetic energy and stopping-voltage readouts.
 10. Radioactive decay — stochastic nucleus lifetimes, visible remaining nuclei, radiation-event tracers and comparison with exponential expectation.
 11. Bohr atomic spectrum — hydrogen-like ion energy levels, electron transitions, emitted/absorbed photon and calculated wavelength.
-12. Sinusoidal wave, pendulum and generated 3D scene engines.
+12. Blackbody radiation — Planck spectrum curve, Wien peak marker and Stefan–Boltzmann total power.
+13. Sinusoidal wave, pendulum and generated 3D scene engines.
 
 ## Physics models
 - Double slit: `I ∝ cos²(π d x / λL)`; defaults 550 nm, 0.25 mm separation and 1.5 m distance; expected fringe spacing 3.30 mm.
@@ -65,6 +66,15 @@ Current UI asset version: v37
 - Model: Eₙ=−13.605693 Z²/n² eV; ΔE=13.605693 Z²|1/n𝒇²−1/nᵢ²| eV; λ=1239.841984/ΔE nm.
 - 3→2 for hydrogen produces the H-alpha line near 656 nm. 2→1 produces a UV line near 121.6 nm.
 - Assumptions: hydrogen-like ions only; no multi-electron structure or fine structure.
+
+## Blackbody radiation
+- Engine ID: blackbody
+- Defaults: T=5800 K, A=0.01 m².
+- Planck spectral radiance: Bλ=2hc²/[λ⁵(exp(hc/λkT)−1)].
+- Wien peak: λmax=2.897771955×10⁶/T nm.
+- Stefan–Boltzmann power: P=σAT⁴.
+- Displays relative Planck spectrum from 100 to 2400 nm and a hot emitter whose color follows temperature approximately.
+- Assumes an ideal emitter with emissivity 1.
 
 ## Validation
 - CI parses all inline app scripts, simulation-engine.js, Worker and config.
