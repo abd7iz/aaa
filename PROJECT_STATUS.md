@@ -1,7 +1,7 @@
 # MUKHTABAR — Project Status
 
 Last updated: 2026-11-25
-Current UI asset version: v43
+Current UI asset version: v50
 
 ## Repository
 - Code: https://github.com/abd7iz/aaa
@@ -132,3 +132,10 @@ Current UI asset version: v43
 - Displays a circuit and exponential capacitor-voltage curve; readouts include current, charge and stored energy.
 - Parameter/mode changes restart the transient from t=0.
 - Assumptions: ideal RC circuit; leakage and source internal resistance are omitted.
+
+
+## Repository maintenance — 25 November 2026
+- Removed duplicated trailing engine source that caused `node --check simulation-engine.js` to fail.
+- Corrected the CI branch-marker array so the RC branch is checked independently from the buoyancy branch.
+- GitHub Pages deployment and JavaScript validation are tracked separately; a successful Pages deployment does not imply that the validation workflow passed.
+- AI health currently reports `configured: false` when the Cloudflare Worker does not receive `GEMINI_API_KEY`. This secret is outside GitHub and cannot be written through repository access; keep it in Cloudflare Worker secrets only.
