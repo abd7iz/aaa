@@ -63,6 +63,8 @@ jobs:
           checker.feed(source)
           assert not checker.duplicates, f"Duplicate HTML IDs: {checker.duplicates}"
           assert checker.inline_scripts, "Inline JavaScript scripts not found"
+          for experiment_id in ("tokamak", "wave", "pendulum"):
+              assert f"EXPS.{experiment_id}.id = '{experiment_id}';" in source, f"Missing built-in experiment: {experiment_id}"
           for number, code in enumerate(checker.inline_scripts):
               Path(f"inline-check-{number}.mjs").write_text(code, encoding="utf-8")
           print(f"HTML checked; {len(checker.ids)} unique IDs and {len(checker.inline_scripts)} inline scripts found.")
@@ -138,6 +140,12 @@ jobs:
           const equatorial = api.dipoleField(2, 1, 90);
           assert.ok(Math.abs(axial.magnitude - 4e-7) < 1e-15);
           assert.ok(Math.abs(equatorial.magnitude - 2e-7) < 1e-15);
+          const tokamak = api.normalizeSpec({ schema: 'mukhtabar-sim-v1', title: 'توكاماك', field: 'physics', engine: 'tokamak', controls: [] });
+          const wave = api.normalizeSpec({ schema: 'mukhtabar-sim-v1', title: 'موجة', field: 'physics', engine: 'wave', controls: [] });
+          const pendulum = api.normalizeSpec({ schema: 'mukhtabar-sim-v1', title: 'بندول', field: 'physics', engine: 'pendulum', controls: [] });
+          assert.deepEqual(Array.from(tokamak.controls, c => c.key), ['field', 'temperature', 'density']);
+          assert.deepEqual(Array.from(wave.controls, c => c.key), ['amplitude', 'frequency', 'speed']);
+          assert.deepEqual(Array.from(pendulum.controls, c => c.key), ['length', 'gravity', 'angle', 'damping']);
           const photoelectric = api.normalizeSpec({
             schema: 'mukhtabar-sim-v1',
             title: 'التأثير الكهروضوئي',
