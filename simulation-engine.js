@@ -2882,7 +2882,7 @@
           var e = param(prm, 'restitution', 1);
           collisionResult = ENGINE.collisionOutcome(m1, m2, u1, u2, e);
           var speedSum = Math.max(.1, u1 - u2);
-          collisionMoment = (3.9 - .9) / speedSum;
+          collisionMoment = (3.9 - .76) / (speedSum * .45);
           lastCollisionSignature = [m1, m2, u1, u2, e].join('|');
         }
         setupCollision();
