@@ -19,7 +19,7 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 22
-      - name: Check HTML, JavaScript and Worker configuration
+      - name: Check HTML, every inline script, JavaScript and Worker configuration
         run: |
           python - <<'PY'
           from html.parser import HTMLParser
@@ -28,12 +28,16 @@ jobs:
 
           source = Path("index.html").read_text(encoding="utf-8")
           assert '<html lang="ar" dir="rtl">' in source, "Arabic RTL document root is missing"
+          assert "$('.tab').forEach" not in source, "A single DOM element is being treated as a collection"
 
-          class IdChecker(HTMLParser):
+          class DocumentChecker(HTMLParser):
               def __init__(self):
                   super().__init__()
                   self.ids = set()
                   self.duplicates = []
+                  self.inline_scripts = []
+                  self.in_inline_script = False
+                  self.current_script = []
               def handle_starttag(self, tag, attrs):
                   attrs = dict(attrs)
                   value = attrs.get("id")
@@ -41,17 +45,29 @@ jobs:
                       if value in self.ids:
                           self.duplicates.append(value)
                       self.ids.add(value)
+                  if tag.lower() == "script":
+                      self.in_inline_script = "src" not in attrs
+                      self.current_script = []
+              def handle_data(self, data):
+                  if self.in_inline_script:
+                      self.current_script.append(data)
+              def handle_endtag(self, tag):
+                  if tag.lower() == "script" and self.in_inline_script:
+                      code = "".join(self.current_script)
+                      if code.strip():
+                          self.inline_scripts.append(code)
+                      self.in_inline_script = False
+                      self.current_script = []
 
-          checker = IdChecker()
+          checker = DocumentChecker()
           checker.feed(source)
           assert not checker.duplicates, f"Duplicate HTML IDs: {checker.duplicates}"
-
-          match = re.search(r"<script(?![^>]*src=)[^>]*>(.*?)</script>", source, re.S)
-          assert match, "Inline JavaScript script not found"
-          Path("module-check.mjs").write_text(match.group(1), encoding="utf-8")
-          print(f"HTML structure checked; {len(checker.ids)} unique IDs found.")
+          assert checker.inline_scripts, "Inline JavaScript scripts not found"
+          for number, code in enumerate(checker.inline_scripts):
+              Path(f"inline-check-{number}.mjs").write_text(code, encoding="utf-8")
+          print(f"HTML checked; {len(checker.ids)} unique IDs and {len(checker.inline_scripts)} inline scripts found.")
           PY
-          node --check module-check.mjs
+          for file in inline-check-*.mjs; do node --check "$file"; done
           node --check simulation-engine.js
           node --check ai-worker/worker.js
           node --check ai-config.js
