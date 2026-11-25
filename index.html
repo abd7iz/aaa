@@ -295,6 +295,7 @@ if(type==='mitosis3d'){
  const cell=new THREE.Group();scene.add(cell);state.cell=cell;
  const cytoplasm=new THREE.Mesh(new THREE.SphereGeometry(1.34,64,48),new THREE.MeshPhysicalMaterial({color:0x75b9ac,map:organicTexture(),roughness:.42,metalness:0,transmission:.04,clearcoat:.22,clearcoatRoughness:.4}));
  cytoplasm.scale.set(1.14,.96,.88);cell.add(cytoplasm);
+ state.cytoplasm=cytoplasm;
  const membraneGeo=new THREE.SphereGeometry(1.42,72,52,0,Math.PI*1.62,0,Math.PI);
  const membrane=new THREE.Mesh(membraneGeo,new THREE.MeshPhysicalMaterial({color:0x8bdde0,transparent:true,opacity:.25,roughness:.17,metalness:0,transmission:.48,thickness:.24,clearcoat:.8,side:THREE.DoubleSide}));
  membrane.scale.set(1.18,1,.9);membrane.castShadow=true;cell.add(membrane);state.membrane=membrane;
@@ -395,7 +396,8 @@ if(type==='mitosis3d'){
  const dashMat=new THREE.LineDashedMaterial({color:0x8bb6ce,dashSize:.12,gapSize:.08,transparent:true,opacity:.62});
  let pathLine=null,traceLine=null,traceGeo=null,trajectoryScale=1,startX=0,flightTime=1;
  const rebuild=()=>{
-  while(projectGroup.children.length){const o=projectGroup.children.pop();projectGroup.remove(o);if(o.geometry)o.geometry.dispose();if(o.material&&!Array.isArray(o.material)){if(o.material!==ballMat&&o.material.map!==ballMap)o.material.dispose()}}
+  if(pathLine){projectGroup.remove(pathLine);pathLine.geometry.dispose();pathLine=null}
+  if(traceLine){projectGroup.remove(traceLine);traceGeo.dispose();traceLine.material.dispose();traceLine=null;traceGeo=null}
   const d=projectileData();flightTime=d.time;trajectoryScale=8/Math.max(d.range,d.height*2,10);startX=-d.range*trajectoryScale/2;
   const pts=[];for(let i=0;i<=120;i++){const t=d.time*i/120;pts.push(new THREE.Vector3(startX+d.vx*t*trajectoryScale,Math.max(0,d.vy*t-.5*params.gravity*t*t)*trajectoryScale+.03,0))}
   pathLine=new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts),dashMat);pathLine.computeLineDistances();projectGroup.add(pathLine);
@@ -423,8 +425,7 @@ state.onParamsChange=state.onParamsChange||(()=>{});
 threeState=state;
 updateThreeStage();
 $('#simCanvas').style.display='none';canvas.style.display='block';
-function animate(){if(!threeState||threeState.disposed)return;state.raf=requestAnimationFrame(animate);if(state.controls)state.controls.update();if(type==='mitosis3d'&&playing)state.cell.rotation.y+=.0009;renderer.render(scene,camera)}
-animate();
+state.update=()=>{if(type==='mitosis3d'&&playing)state.cell.rotation.y+=.0009};
 }
 function updateThreeStage(){
  if(!threeState||!threeState.cell)return;
@@ -433,7 +434,7 @@ function updateThreeStage(){
  o.nucleus.visible=s<=2;o.nucleus.scale.setScalar(s===1?.86:1);
  o.nucleusLeft.visible=s>=4;o.nucleusRight.visible=s>=4;
  o.nucleusLeft.position.set(-.54,0,0);o.nucleusRight.position.set(.54,0,0);
- o.bioParts.visible=s<=1||s===5;
+ o.bioParts.visible=s<=1;if(o.cytoplasm)o.cytoplasm.visible=s!==5;
  o.poles.forEach(p=>p.visible=s>=1&&s<=3);o.spindleGroup.visible=s>=1&&s<=3;
  o.chroms.forEach((c,i)=>{const a=i/8*Math.PI*2;let x=Math.cos(a)*.32,y=Math.sin(a)*.26,z=(i%2)*.08;
   if(s===0){x=Math.cos(a)*.27;y=Math.sin(a)*.25;c.scale.setScalar(.65)}
