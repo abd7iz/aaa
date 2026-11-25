@@ -212,8 +212,8 @@
           geo.computeVertexNormals();
           return { geometry: geo, base: positions.slice(), major: majorSeg, minor: minorSeg, radius: radius, phase: phase };
         }
-        var shellA = plasmaSurface(tube, 132, 28, 0);
-        var shellB = plasmaSurface(tube * .68, 112, 22, 1.7);
+        var shellA = plasmaSurface(tube, 96, 20, 0);
+        var shellB = plasmaSurface(tube * .68, 80, 16, 1.7);
         var plasmaOuterMat = new T.MeshPhongMaterial({
           color: 0x34d9ee, emissive: 0x07506b, emissiveIntensity: 1.35,
           transparent: true, opacity: .32, shininess: 95, side: T.DoubleSide,
@@ -248,10 +248,10 @@
           }
           lineMats = [];
           var pitch = 1.15 + fieldRatio * 2.7;
-          for (var f = 0; f < 9; f++) {
-            var points = [], phase = f * Math.PI * 2 / 9;
-            for (var j = 0; j <= 300; j++) {
-              var u = j / 300 * Math.PI * 4;
+          for (var f = 0; f < 6; f++) {
+            var points = [], phase = f * Math.PI * 2 / 6;
+            for (var j = 0; j <= 180; j++) {
+              var u = j / 180 * Math.PI * 4;
               var v = pitch * u + phase;
               var minor = tube * .99;
               points.push(new T.Vector3(
@@ -261,7 +261,7 @@
               ));
             }
             var curve = new T.CatmullRomCurve3(points);
-            var line = new T.Mesh(new T.TubeGeometry(curve, 300, .012 + fieldRatio * .006, 4, false),
+            var line = new T.Mesh(new T.TubeGeometry(curve, 180, .012 + fieldRatio * .006, 4, false),
               new T.MeshBasicMaterial({ color: 0x7dd3fc, transparent: true, opacity: .34 + fieldRatio * .34 }));
             lineGroup.add(line); lineMats.push(line.material);
           }
@@ -270,7 +270,7 @@
         rebuildFieldLines(ratio('field', .45));
 
         // Particles follow helical guiding-centre paths and a small gyro-orbit around them.
-        var count = 1450, particlePos = new Float32Array(count * 3);
+        var count = 760, particlePos = new Float32Array(count * 3);
         var particleColors = new Float32Array(count * 3);
         var particleSeeds = seeded(241), phi0 = new Float32Array(count), theta0 = new Float32Array(count);
         var rho0 = new Float32Array(count), gyro0 = new Float32Array(count), gyroSize = new Float32Array(count);
@@ -295,7 +295,7 @@
         S.add(particles);
 
         // A smaller set of short streaks makes the helical direction visible.
-        var trailLines = [], trailCount = 18, trailSteps = 20, trailSpan = .42;
+        var trailLines = [], trailCount = 8, trailSteps = 14, trailSpan = .36;
         for (var tr = 0; tr < trailCount; tr++) {
           var trailArray = new Float32Array(trailSteps * 3), trailGeometry = new T.BufferGeometry();
           trailGeometry.setAttribute('position', new T.BufferAttribute(trailArray, 3));
@@ -307,7 +307,7 @@
           trailLines.push({ geometry: trailGeometry, array: trailArray, particle: Math.floor(tr / trailCount * count) });
         }
 
-        var hazeCount = 520, hazePos = new Float32Array(hazeCount * 3), hazeGeo = new T.BufferGeometry();
+        var hazeCount = 260, hazePos = new Float32Array(hazeCount * 3), hazeGeo = new T.BufferGeometry();
         var hazeSeeds = seeded(992), hazePhi = new Float32Array(hazeCount), hazeTheta = new Float32Array(hazeCount), hazeRho = new Float32Array(hazeCount);
         for (var hz = 0; hz < hazeCount; hz++) {
           hazePhi[hz] = (hazeSeeds() + 1) * Math.PI;
