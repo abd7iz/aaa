@@ -51,7 +51,7 @@
     if (!raw || typeof raw !== 'object' || raw.schema !== 'mukhtabar-sim-v1') {
       throw new Error('صيغة التجربة التي أنشأها الذكاء الاصطناعي غير معروفة.');
     }
-    var engine = ['tokamak', 'wave', 'pendulum', 'interference', 'induction', 'diffraction', 'dipole', 'polarization', 'photoelectric', 'decay', 'bohr', 'blackbody', 'scene'].indexOf(raw.engine) >= 0 ? raw.engine : null;
+    var engine = ['tokamak', 'wave', 'pendulum', 'interference', 'induction', 'diffraction', 'dipole', 'polarization', 'photoelectric', 'decay', 'bohr', 'blackbody', 'idealgas', 'scene'].indexOf(raw.engine) >= 0 ? raw.engine : null;
     if (!engine) throw new Error('نوع المحاكاة غير مدعوم في محرك المختبر الحالي.');
     var field = FIELDS.indexOf(raw.field) >= 0 ? raw.field : 'physics';
     var used = {}, controls = [];
@@ -118,6 +118,10 @@
     } else if (engine === 'blackbody') {
       ensure(defaultControl('temperature', 'درجة حرارة الجسم', 1800, 12000, 100, 5800, 'K'));
       ensure(defaultControl('surface_area', 'مساحة السطح المشع', .001, .05, .001, .01, 'm²'));
+    } else if (engine === 'idealgas') {
+      ensure(defaultControl('temperature', 'درجة حرارة الغاز', 150, 900, 10, 300, 'K'));
+      ensure(defaultControl('amount', 'كمية الغاز', .05, .5, .01, .1, 'mol'));
+      ensure(defaultControl('volume', 'حجم الوعاء', .5, 5, .1, 2.5, 'L'));
     }
     if (!controls.length) controls.push(defaultControl('rate', 'معدل الحركة', .1, 3, .05, 1, '×'));
     if (controls.length > 7) controls = controls.slice(0, 7);
@@ -258,6 +262,22 @@
     return 5.670374419e-8 * A * Math.pow(T, 4);
   };
 
+  ENGINE.idealGasState = function (temperatureK, amountMol, volumeLitres, molarMassKgMol) {
+    var T = Math.max(0, finite(temperatureK, 300));
+    var n = Math.max(0, finite(amountMol, .1));
+    var V = Math.max(.000001, finite(volumeLitres, 2.5) * .001);
+    var M = Math.max(.000001, finite(molarMassKgMol, .028));
+    var R = 8.31446261815324;
+    var pressure = n * R * T / V;
+    return {
+      pressurePa: pressure,
+      pressureKPa: pressure / 1000,
+      pressureAtm: pressure / 101325,
+      rmsSpeed: Math.sqrt(3 * R * T / M),
+      numberDensityMolM3: n / V
+    };
+  };
+
   function paramsFrom(def, state) {
     var out = {};
     def.params.forEach(function (p) {
@@ -277,7 +297,7 @@
       id: 'generated',
       field: spec.field === 'biology' ? 'bio' : 'phy',
       fieldLabel: ({ physics: 'الفيزياء', biology: 'الأحياء', chemistry: 'الكيمياء', astronomy: 'الفلك', mathematics: 'الرياضيات' })[spec.field],
-      icon: spec.engine === 'tokamak' ? 'atom' : spec.engine === 'wave' ? 'activity' : spec.engine === 'pendulum' ? 'clock' : spec.engine === 'interference' ? 'waves' : spec.engine === 'induction' ? 'zap' : spec.engine === 'diffraction' ? 'scan-eye' : spec.engine === 'dipole' ? 'magnet' : spec.engine === 'polarization' ? 'sun' : spec.engine === 'photoelectric' ? 'zap' : spec.engine === 'decay' ? 'atom' : spec.engine === 'bohr' ? 'orbit' : spec.engine === 'blackbody' ? 'thermometer-sun' : 'shapes',
+      icon: spec.engine === 'tokamak' ? 'atom' : spec.engine === 'wave' ? 'activity' : spec.engine === 'pendulum' ? 'clock' : spec.engine === 'interference' ? 'waves' : spec.engine === 'induction' ? 'zap' : spec.engine === 'diffraction' ? 'scan-eye' : spec.engine === 'dipole' ? 'magnet' : spec.engine === 'polarization' ? 'sun' : spec.engine === 'photoelectric' ? 'zap' : spec.engine === 'decay' ? 'atom' : spec.engine === 'bohr' ? 'orbit' : spec.engine === 'blackbody' ? 'thermometer-sun' : spec.engine === 'idealgas' ? 'gauge' : 'shapes',
       title: spec.title,
       short: spec.summary,
       spec: spec,
@@ -384,6 +404,18 @@
           rows.push(['طول موجة القمة λmax', peakNm.toFixed(1) + ' nm']);
           rows.push(['القدرة المشعة الكلية', ENGINE.stefanBoltzmannPower(tempK, area).toFixed(2) + ' W']);
           rows.push(['شدة الطيف عند القمة', peakRadiance.toExponential(3) + ' W·m⁻³·sr⁻¹']);
+        }
+        if (spec.engine === 'idealgas') {
+          var gas = ENGINE.idealGasState(
+            param(prm, 'temperature', 300),
+            param(prm, 'amount', .1),
+            param(prm, 'volume', 2.5),
+            .028
+          );
+          rows.push(['ضغط الغاز', gas.pressureKPa.toFixed(2) + ' kPa']);
+          rows.push(['الضغط الجوي النسبي', gas.pressureAtm.toFixed(3) + ' atm']);
+          rows.push(['سرعة الجذر التربيعي المتوسطة (N₂)', gas.rmsSpeed.toFixed(1) + ' m/s']);
+          rows.push(['كثافة كمية المادة', gas.numberDensityMolM3.toFixed(2) + ' mol/m³']);
         }
         return rows;
       };
@@ -2100,8 +2132,144 @@
           trailGeo.setDrawRange(0, 0); drawPendulum();
         };
         resetModel();
-      } else {
-        var meshes = [];
+      } else if (spec.engine === 'idealgas') {
+        // Ideal-gas piston: molecular speed follows temperature; piston height follows volume.
+        var vesselRadius = 1.16, vesselBottom = .12, maxHeight = 3.7;
+        var glassMaterial = new T.MeshPhongMaterial({
+          color: 0x6e9bb3, transparent: true, opacity: .13,
+          side: T.DoubleSide, shininess: 100, depthWrite: false
+        });
+        var vesselWall = new T.Mesh(
+          new T.CylinderGeometry(vesselRadius, vesselRadius, maxHeight, 48, 1, true),
+          glassMaterial
+        );
+        vesselWall.position.y = vesselBottom + maxHeight / 2;
+        S.add(vesselWall);
+
+        var metalMaterial = new T.MeshPhongMaterial({
+          color: 0x8195a4, metalness: .78, roughness: .32, shininess: 90
+        });
+        var basePlate = new T.Mesh(new T.CylinderGeometry(vesselRadius + .11, vesselRadius + .11, .18, 48), metalMaterial);
+        basePlate.position.y = vesselBottom - .09;
+        S.add(basePlate);
+
+        var piston = new T.Mesh(new T.CylinderGeometry(vesselRadius - .025, vesselRadius - .025, .16, 48), metalMaterial);
+        S.add(piston);
+        var pistonRim = new T.Mesh(new T.TorusGeometry(vesselRadius - .045, .035, 8, 48),
+          new T.MeshPhongMaterial({ color: 0xb5c5cf, metalness: .85, shininess: 100 }));
+        S.add(pistonRim);
+        var pistonRod = new T.Mesh(new T.CylinderGeometry(.11, .11, .85, 20), metalMaterial);
+        S.add(pistonRod);
+
+        var baseRing = new T.Mesh(new T.TorusGeometry(vesselRadius, .045, 8, 48), metalMaterial);
+        baseRing.position.y = vesselBottom;
+        baseRing.rotation.x = Math.PI / 2;
+        S.add(baseRing);
+
+        var particleMax = 160;
+        var particlePositions = new Float32Array(particleMax * 3);
+        var particleSeeds = seeded(55129), velocitySeeds = seeded(88117);
+        var particleVelocity = new Float32Array(particleMax * 3);
+        var gasGeometry = new T.BufferGeometry();
+        gasGeometry.setAttribute('position', new T.BufferAttribute(particlePositions, 3));
+        var gasParticles = new T.Points(gasGeometry, new T.PointsMaterial({
+          color: 0x65dfff, size: .105, transparent: true, opacity: .95,
+          blending: T.AdditiveBlending, depthWrite: false
+        }));
+        S.add(gasParticles);
+
+        var pressureGlow = new T.PointLight(0x42bfe8, .8, 5);
+        pressureGlow.position.set(0, 1.4, 0);
+        S.add(pressureGlow);
+
+        var gasCountBuilt = 0, gasHeight = 2.0;
+        function gasHeightFromVolume(volumeL) {
+          return .72 + (clamp(volumeL, .5, 5) - .5) / 4.5 * 2.82;
+        }
+        function rebuildGasParticles() {
+          var count = clamp(Math.round(param(prm, 'amount', .1) / .5 * particleMax), 16, particleMax);
+          for (var pi = 0; pi < count; pi++) {
+            var u = (particleSeeds() + 1) * .5;
+            var phi = (particleSeeds() + 1) * Math.PI;
+            var radius = Math.sqrt(u) * vesselRadius * .78;
+            particlePositions[pi * 3] = radius * Math.cos(phi);
+            particlePositions[pi * 3 + 1] = vesselBottom + .12 + (particleSeeds() + 1) * .5 * Math.max(.1, gasHeight - .24);
+            particlePositions[pi * 3 + 2] = radius * Math.sin(phi);
+            var vx = velocitySeeds(), vy = velocitySeeds(), vz = velocitySeeds();
+            var norm = Math.sqrt(vx * vx + vy * vy + vz * vz) || 1;
+            particleVelocity[pi * 3] = vx / norm;
+            particleVelocity[pi * 3 + 1] = vy / norm;
+            particleVelocity[pi * 3 + 2] = vz / norm;
+          }
+          gasCountBuilt = count;
+          gasGeometry.attributes.position.needsUpdate = true;
+          gasGeometry.setDrawRange(0, count);
+        }
+        rebuildGasParticles();
+
+        updateModel = function (dt) {
+          var temp = param(prm, 'temperature', 300);
+          var volume = param(prm, 'volume', 2.5);
+          var amount = param(prm, 'amount', .1);
+          var targetHeight = gasHeightFromVolume(volume);
+          if (Math.abs(targetHeight - gasHeight) > .0001) gasHeight = targetHeight;
+
+          piston.position.y = vesselBottom + gasHeight + .04;
+          pistonRim.position.y = piston.position.y + .08;
+          pistonRod.position.y = piston.position.y + .49;
+
+          var wantedCount = clamp(Math.round(amount / .5 * particleMax), 16, particleMax);
+          if (wantedCount !== gasCountBuilt) rebuildGasParticles();
+
+          var speedFactor = Math.sqrt(temp / 300) * 1.35;
+          var dtSafe = clamp(finite(dt, 0), 0, .05) * speedFactor;
+          var top = vesselBottom + gasHeight - .22;
+          var bottom = vesselBottom + .14;
+          var radialLimit = vesselRadius * .78;
+          for (var p = 0; p < gasCountBuilt; p++) {
+            var idx = p * 3;
+            var x = particlePositions[idx], y = particlePositions[idx + 1], z = particlePositions[idx + 2];
+            var vx = particleVelocity[idx], vy = particleVelocity[idx + 1], vz = particleVelocity[idx + 2];
+            x += vx * dtSafe;
+            y += vy * dtSafe;
+            z += vz * dtSafe;
+            var radialSq = x * x + z * z;
+            if (radialSq > radialLimit * radialLimit) {
+              var radial = Math.sqrt(radialSq) || 1;
+              var nx = x / radial, nz = z / radial;
+              var dot = vx * nx + vz * nz;
+              vx -= 2 * dot * nx;
+              vz -= 2 * dot * nz;
+              x = nx * radialLimit;
+              z = nz * radialLimit;
+            }
+            if (y > top) { y = top; vy = -Math.abs(vy); }
+            if (y < bottom) { y = bottom; vy = Math.abs(vy); }
+            particlePositions[idx] = x;
+            particlePositions[idx + 1] = y;
+            particlePositions[idx + 2] = z;
+            particleVelocity[idx] = vx;
+            particleVelocity[idx + 1] = vy;
+            particleVelocity[idx + 2] = vz;
+          }
+          gasGeometry.attributes.position.needsUpdate = true;
+          var gasState = ENGINE.idealGasState(temp, amount, volume);
+          pressureGlow.intensity = .35 + clamp(gasState.pressureAtm / 3, 0, 1.5);
+        };
+        resetModel = function () {
+          particleSeeds = seeded(55129);
+          velocitySeeds = seeded(88117);
+          gasHeight = gasHeightFromVolume(param(prm, 'volume', 2.5));
+          rebuildGasParticles();
+          updateModel(0);
+        };
+        updateModel(0);
+        piston.position.y = vesselBottom + gasHeight + .04;
+        pistonRim.position.y = piston.position.y + .08;
+        pistonRod.position.y = piston.position.y + .49;
+        st.sph.r = 10.2;
+        st.place();
+
         spec.objects.forEach(function (o) {
           var g;
           if (o.type === 'sphere') g = new T.SphereGeometry(.5, 32, 24);
@@ -2178,6 +2346,7 @@
           if (spec.engine === 'decay') return 'يصف الاضمحلال الإشعاعي قانوناً إحصائياً: N(t)=N₀e^(−λt)، حيث λ=ln(2)/T½. كل نواة لها زمن اضمحلال عشوائي موزع أُسياً؛ لذلك قد يختلف العدد المشاهد عن المنحنى المتوقع، خصوصاً في العينات الصغيرة. زد عدد النوى لملاحظة تقارب النتيجة من المنحنى الإحصائي. هذا نموذج تعليمي لا يحدد مادة مشعة بعينها أو نشاطاً عملياً.';
           if (spec.engine === 'bohr') return 'في نموذج بور للأيونات الشبيهة بالهيدروجين تكون طاقة المستوى En = −13.6 Z²/n² eV. عند الانتقال بين مستويين تتغير طاقة الذرة بمقدار ΔE = 13.6 Z²|1/nf² − 1/ni²|، وتُحمل هذه الطاقة بفوتون طوله الموجي λ = hc/ΔE. هذا نموذج مبسط، ولا يصف الذرات متعددة الإلكترونات أو البنية الدقيقة للخطوط الطيفية.';
           if (spec.engine === 'blackbody') return 'يصف قانون بلانك التوزيع الطيفي لإشعاع الجسم الأسود حسب الطول الموجي ودرجة الحرارة. تنتقل قمة الطيف مع الحرارة وفق قانون فين λmax = 2.8978×10⁶/T nm، بينما تتناسب القدرة الكلية المشعة لكل وحدة مساحة مع T⁴ وفق قانون ستيفان–بولتزمان. الرسم يعرض طيفاً نسبياً ضمن نطاق 100–2400 nm؛ والقدرة الكلية المعروضة محسوبة لمساحة السطح المختارة. النموذج يفترض باعثاً مثالياً بمعامل انبعاث يساوي واحداً.';
+          if (spec.engine === 'idealgas') return 'يطبق النموذج قانون الغاز المثالي PV=nRT. درجة الحرارة تغيّر السرعة المتوسطة للجسيمات تقريبياً وفق الجذر التربيعي لـ T، وكمية الغاز تحدد عدد الجسيمات المعروضة، والحجم يحرك المكبس. الجسيمات تتحرك وترتد عن الجدران، لكن لا نحسب التصادمات البينية التفصيلية أو التوزيع الكامل لسرعات ماكسويل–بولتزمان.';
           return spec.assumptions || spec.principle || spec.summary;
         },
         dispose: function () { st.dispose(); }
