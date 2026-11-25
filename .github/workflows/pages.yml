@@ -52,6 +52,7 @@ jobs:
           print(f"HTML structure checked; {len(checker.ids)} unique IDs found.")
           PY
           node --check module-check.mjs
+          node --check simulation-engine.js
           node --check ai-worker/worker.js
           node --check ai-config.js
           node -e "JSON.parse(require('node:fs').readFileSync('wrangler.jsonc', 'utf8'))"
