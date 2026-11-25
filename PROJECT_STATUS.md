@@ -1,7 +1,7 @@
 # MUKHTABAR — Project Status
 
 Last updated: 2026-11-25
-Current UI asset version: v27
+Current UI asset version: v28
 
 ## Repository
 - Code: https://github.com/abd7iz/aaa
@@ -18,7 +18,7 @@ Current UI asset version: v27
 5. Young double slit — dynamic wavefronts and calculated interference fringes; controls wavelength, slit separation and screen distance; readout includes fringe spacing.
 6. Electromagnetic induction generator — rotating copper coil between N/S poles, magnetic field lines, current-carrier indicators and sine-wave oscilloscope; controls field, coil area, turns, angular_speed and resistance; readouts include flux linkage, instantaneous/peak emf and current.
 7. Fraunhofer diffraction grating — multiple parallel slits, dynamic wavefronts, calculated multi-slit intensity with finite-width slit envelope; controls wavelength, grating spacing, slit count, slit width and screen distance; readouts include first-order angle and highest possible order.
-8. Magnetic dipole — analytic dipole field lines, animated direction tracers and movable probe showing |B|, Bx and By; controls magnetic moment, probe radius, probe angle and line count.
+8. Magnetic dipole — analytic dipole field lines, a sampled 2D vector-arrow map, animated direction tracers and movable probe showing |B|, Bx and By; controls magnetic moment, probe radius, probe angle and line count.
 9. Sinusoidal wave, pendulum and generated 3D scene engines.
 
 ## Physics models
