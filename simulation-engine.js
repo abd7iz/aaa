@@ -248,29 +248,37 @@
           S.add(winding);
         }
 
-        // Broad, bevelled D-shaped metal coils (solid plates, not thin wire loops).
-        var coilInner = R - .78, coilOuter = R + 1.02, coilHalfH = 1.62;
+        // D-shaped superconducting coil housings: slimmer profile with a bright metal finish.
+        var coilInner = R - .62, coilOuter = R + .72, coilHalfH = 1.48;
         var coilShape = new T.Shape();
         coilShape.moveTo(coilInner, -coilHalfH);
         coilShape.lineTo(coilInner, coilHalfH);
-        coilShape.bezierCurveTo(coilInner + .12, coilHalfH + .24, coilOuter, coilHalfH + .24, coilOuter, 0);
-        coilShape.bezierCurveTo(coilOuter, -coilHalfH - .24, coilInner + .12, -coilHalfH - .24, coilInner, -coilHalfH);
+        coilShape.bezierCurveTo(coilInner + .12, coilHalfH + .22, coilOuter, coilHalfH + .22, coilOuter, 0);
+        coilShape.bezierCurveTo(coilOuter, -coilHalfH - .22, coilInner + .12, -coilHalfH - .22, coilInner, -coilHalfH);
         coilShape.closePath();
         var coilGeometry = new T.ExtrudeGeometry(coilShape, {
-          depth: .22,
+          depth: .17,
           steps: 1,
-          curveSegments: 16,
+          curveSegments: 18,
           bevelEnabled: true,
           bevelSegments: 3,
-          bevelSize: .045,
-          bevelThickness: .045
+          bevelSize: .055,
+          bevelThickness: .055
         });
-        coilGeometry.translate(0, 0, -.11);
-        var coilMaterial = new T.MeshStandardMaterial({
-          color: 0x879ba8, metalness: .78, roughness: .3
+        coilGeometry.translate(0, 0, -.085);
+        var coilMaterial = new T.MeshPhongMaterial({
+          color: 0xb8d2df,
+          emissive: 0x24485d,
+          emissiveIntensity: .72,
+          specular: 0xf0fbff,
+          shininess: 105
         });
-        for (var c = 0; c < 12; c++) {
-          var coilAngle = c / 12 * Math.PI * 2;
+        var coilEdgeGeometry = new T.EdgesGeometry(coilGeometry, 32);
+        var coilEdgeMaterial = new T.LineBasicMaterial({
+          color: 0x75dfff, transparent: true, opacity: .42
+        });
+        for (var c = 0; c < 10; c++) {
+          var coilAngle = c / 10 * Math.PI * 2;
           var radialAxis = new T.Vector3(Math.cos(coilAngle), 0, Math.sin(coilAngle));
           var verticalAxis = new T.Vector3(0, 1, 0);
           var tangentAxis = new T.Vector3(-Math.sin(coilAngle), 0, Math.cos(coilAngle));
@@ -278,6 +286,9 @@
           var coil = new T.Mesh(coilGeometry, coilMaterial);
           coil.quaternion.setFromRotationMatrix(coilFrame);
           S.add(coil);
+          var coilEdge = new T.LineSegments(coilEdgeGeometry, coilEdgeMaterial);
+          coilEdge.quaternion.copy(coil.quaternion);
+          S.add(coilEdge);
         }
 
         // Subtle structural support rings above and below the coil set.
