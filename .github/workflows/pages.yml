@@ -96,7 +96,7 @@ jobs:
             controls: []
           });
           assert.equal(induction.engine, 'induction');
-          assert.deepEqual(Array.from(induction.controls, c => c.key), ['field', 'area', 'turns', 'angularSpeed', 'resistance']);
+          assert.deepEqual(Array.from(induction.controls, c => c.key), ['field', 'area', 'turns', 'angular_speed', 'resistance']);
           assert.deepEqual(Array.from(induction.controls, c => c.value), [0.8, 0.04, 100, 12, 4]);
           console.log('Interference and induction engine schema smoke tests passed.');
           NODE
