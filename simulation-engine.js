@@ -583,6 +583,14 @@
       return {
         params: prm,
         setParam: function (key, value) { prm[key] = value; if (spec.engine === 'pendulum') resetModel(); else updateModel(0); },
+        getViewScale: function () {
+          return Math.round(clamp((25 - st.sph.r) / 17 * 100, 0, 100));
+        },
+        setViewScale: function (value) {
+          var n = clamp(finite(Number(value), 50), 0, 100);
+          st.sph.r = 25 - (n / 100) * 17;
+          st.place();
+        },
         getState: function () { return { params: Object.assign({}, prm), spec: spec }; },
         actions: actions,
         readouts: readout,
