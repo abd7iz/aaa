@@ -93,7 +93,8 @@ jobs:
             "} else if (spec.engine === 'rlc') {",
             "} else if (spec.engine === 'doppler') {",
             "} else if (spec.engine === 'standingwave') {",
-            "} else if (spec.engine === 'collision') {"
+            "} else if (spec.engine === 'collision') {",
+            "} else if (spec.engine === 'titration') {"
           ];
           for (const marker of branchMarkers) assert.ok(engineSource.includes(marker), "Missing simulation branch: " + marker);
           assert.ok(engineSource.includes("function maxwellPdfRatio"), "Ideal gas Maxwell speed curve is missing");
@@ -348,7 +349,27 @@ jobs:
           assert.ok(Math.abs(inelastic.momentumAfter - inelastic.momentumBefore) < 1e-12);
           assert.ok(Math.abs(inelastic.velocity1After - inelastic.velocity2After) < 1e-12);
           assert.ok(Math.abs(inelastic.kineticEnergyAfter) < 1e-12);
-          console.log('Optics, atomic spectra, blackbody, gas, RLC, Doppler, standing-wave and collision physics/schema checks passed.');
+          const titration = api.normalizeSpec({
+            schema: 'mukhtabar-sim-v1',
+            title: 'معايرة حمض وقاعدة',
+            field: 'chemistry',
+            engine: 'titration',
+            controls: []
+          });
+          assert.equal(titration.engine, 'titration');
+          assert.deepEqual(Array.from(titration.controls, c => c.key), ['acid_concentration', 'base_concentration', 'acid_volume', 'base_added']);
+          assert.deepEqual(Array.from(titration.controls, c => c.value), [0.1, 0.1, 25, 25]);
+          const beforeEquivalence = api.strongTitration(.1, .1, 25, 24);
+          const atEquivalence = api.strongTitration(.1, .1, 25, 25);
+          const afterEquivalence = api.strongTitration(.1, .1, 25, 26);
+          const shiftedEquivalence = api.strongTitration(.2, .1, 25, 50);
+          assert.ok(beforeEquivalence.pH < 7 && beforeEquivalence.excess === 'acid');
+          assert.equal(atEquivalence.pH, 7);
+          assert.equal(atEquivalence.excess, 'equivalence');
+          assert.ok(afterEquivalence.pH > 7 && afterEquivalence.excess === 'base');
+          assert.ok(Math.abs(beforeEquivalence.equivalenceVolumeMl - 25) < 1e-12);
+          assert.ok(Math.abs(shiftedEquivalence.equivalenceVolumeMl - 50) < 1e-12);
+          console.log('Optics, atomic spectra, gas, RLC, Doppler, collisions and acid-base titration physics/schema checks passed.');
           NODE
           node --check ai-worker/worker.js
           node --check ai-config.js
