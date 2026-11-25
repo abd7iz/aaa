@@ -89,7 +89,8 @@ jobs:
             "} else if (spec.engine === 'wave') {",
             "} else if (spec.engine === 'pendulum') {",
             "} else if (spec.engine === 'blackbody') {",
-            "} else if (spec.engine === 'idealgas') {"
+            "} else if (spec.engine === 'idealgas') {",
+            "} else if (spec.engine === 'rlc') {"
           ];
           for (const marker of branchMarkers) assert.ok(engineSource.includes(marker), "Missing simulation branch: " + marker);
           const sandbox = { window: {} };
@@ -256,7 +257,29 @@ jobs:
           assert.ok(Math.abs(gasDoubleTemp.pressurePa / gasDefault.pressurePa - 2) < 1e-12);
           assert.ok(Math.abs(gasDoubleVolume.pressurePa / gasDefault.pressurePa - .5) < 1e-12);
           assert.ok(gasDefault.rmsSpeed > 510 && gasDefault.rmsSpeed < 520);
-          console.log('Optics, atomic spectra, blackbody, ideal-gas, dipole and decay physics/schema checks passed.');
+          const rlc = api.normalizeSpec({
+            schema: 'mukhtabar-sim-v1',
+            title: 'دائرة RLC',
+            field: 'physics',
+            engine: 'rlc',
+            controls: []
+          });
+          assert.equal(rlc.engine, 'rlc');
+          assert.deepEqual(Array.from(rlc.controls, c => c.key), ['voltage', 'resistance', 'inductance', 'capacitance', 'frequency']);
+          assert.deepEqual(Array.from(rlc.controls, c => c.value), [12, 20, 100, 100, 50]);
+          const L = 0.1, C = 100e-6;
+          const f0 = 1 / (2 * Math.PI * Math.sqrt(L * C));
+          const atResonance = api.rlcState(12, 20, 100, 100, f0);
+          const belowResonance = api.rlcState(12, 20, 100, 100, 25);
+          const aboveResonance = api.rlcState(12, 20, 100, 100, 75);
+          assert.ok(Math.abs(atResonance.inductiveReactance - atResonance.capacitiveReactance) < 1e-9);
+          assert.ok(Math.abs(atResonance.impedance - 20) < 1e-9);
+          assert.ok(Math.abs(atResonance.currentPeak - 0.6) < 1e-9);
+          assert.ok(Math.abs(atResonance.phaseDegrees) < 1e-8);
+          assert.ok(Math.abs(atResonance.resonanceFrequency - f0) < 1e-9);
+          assert.ok(belowResonance.phaseDegrees < 0, 'Below resonance the series circuit should be capacitive');
+          assert.ok(aboveResonance.phaseDegrees > 0, 'Above resonance the series circuit should be inductive');
+          console.log('Optics, atomic spectra, blackbody, ideal-gas, RLC resonance and other physics/schema checks passed.');
           NODE
           node --check ai-worker/worker.js
           node --check ai-config.js
