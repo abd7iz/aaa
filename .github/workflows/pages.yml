@@ -128,7 +128,17 @@ jobs:
           assert.equal(polarization.engine, 'polarization');
           assert.deepEqual(Array.from(polarization.controls, c => c.key), ['angle', 'wavelength', 'source_intensity']);
           assert.deepEqual(Array.from(polarization.controls, c => c.value), [35, 550, 100]);
-          console.log('Interference, induction, diffraction, dipole and polarization schema smoke tests passed.');
+          const malus0 = api.malusLaw(1, 0);
+          const malus45 = api.malusLaw(1, 45);
+          const malus90 = api.malusLaw(1, 90);
+          assert.ok(Math.abs(malus0.output - 0.5) < 1e-12);
+          assert.ok(Math.abs(malus45.output - 0.25) < 1e-12);
+          assert.ok(malus90.output < 1e-12);
+          const axial = api.dipoleField(2, 1, 0);
+          const equatorial = api.dipoleField(2, 1, 90);
+          assert.ok(Math.abs(axial.magnitude - 4e-7) < 1e-15);
+          assert.ok(Math.abs(equatorial.magnitude - 2e-7) < 1e-15);
+          console.log('Interference, induction, diffraction, dipole and polarization schemas and physics checks passed.');
           NODE
           node --check ai-worker/worker.js
           node --check ai-config.js
