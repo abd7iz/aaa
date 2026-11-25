@@ -91,7 +91,8 @@ jobs:
             "} else if (spec.engine === 'blackbody') {",
             "} else if (spec.engine === 'idealgas') {",
             "} else if (spec.engine === 'rlc') {",
-            "} else if (spec.engine === 'doppler') {"
+            "} else if (spec.engine === 'doppler') {",
+            "} else if (spec.engine === 'standingwave') {"
           ];
           for (const marker of branchMarkers) assert.ok(engineSource.includes(marker), "Missing simulation branch: " + marker);
           assert.ok(engineSource.includes("function maxwellPdfRatio"), "Ideal gas Maxwell speed curve is missing");
@@ -306,7 +307,28 @@ jobs:
           assert.ok(receding.observedFrequency < 440);
           assert.ok(observerApproaching.observedFrequency > 440);
           assert.ok(Math.abs(approaching.observedFrequency - 440 * 343 / 313) < 1e-12);
-          console.log('Optics, atomic spectra, blackbody, ideal-gas, RLC and Doppler physics/schema checks passed.');
+          const standing = api.normalizeSpec({
+            schema: 'mukhtabar-sim-v1',
+            title: 'موجة واقفة على وتر',
+            field: 'physics',
+            engine: 'standingwave',
+            controls: []
+          });
+          assert.equal(standing.engine, 'standingwave');
+          assert.deepEqual(Array.from(standing.controls, c => c.key), ['length', 'tension', 'linear_density', 'harmonic', 'drive_frequency', 'amplitude']);
+          assert.deepEqual(Array.from(standing.controls, c => c.value), [1, 50, 0.005, 2, 100, 0.25]);
+          const stringDefault = api.stringWaveState(1, 50, 0.005, 2, 100);
+          const stringDoubleTension = api.stringWaveState(1, 100, 0.005, 2, 100 * Math.sqrt(2));
+          const stringOffResonance = api.stringWaveState(1, 50, 0.005, 2, 80);
+          assert.ok(Math.abs(stringDefault.waveSpeed - 100) < 1e-12);
+          assert.ok(Math.abs(stringDefault.fundamentalFrequency - 50) < 1e-12);
+          assert.ok(Math.abs(stringDefault.resonantFrequency - 100) < 1e-12);
+          assert.ok(Math.abs(stringDefault.wavelength - 1) < 1e-12);
+          assert.ok(stringDefault.isNearResonance);
+          assert.ok(!stringOffResonance.isNearResonance);
+          assert.ok(stringDefault.response > stringOffResonance.response);
+          assert.ok(Math.abs(stringDoubleTension.resonantFrequency - 100 * Math.sqrt(2)) < 1e-9);
+          console.log('Optics, atomic spectra, blackbody, gas, RLC, Doppler and standing-wave physics/schema checks passed.');
           NODE
           node --check ai-worker/worker.js
           node --check ai-config.js
