@@ -51,7 +51,7 @@
     if (!raw || typeof raw !== 'object' || raw.schema !== 'mukhtabar-sim-v1') {
       throw new Error('صيغة التجربة التي أنشأها الذكاء الاصطناعي غير معروفة.');
     }
-    var engine = ['tokamak', 'wave', 'pendulum', 'interference', 'induction', 'diffraction', 'dipole', 'polarization', 'photoelectric', 'scene'].indexOf(raw.engine) >= 0 ? raw.engine : null;
+    var engine = ['tokamak', 'wave', 'pendulum', 'interference', 'induction', 'diffraction', 'dipole', 'polarization', 'photoelectric', 'decay', 'scene'].indexOf(raw.engine) >= 0 ? raw.engine : null;
     if (!engine) throw new Error('نوع المحاكاة غير مدعوم في محرك المختبر الحالي.');
     var field = FIELDS.indexOf(raw.field) >= 0 ? raw.field : 'physics';
     var used = {}, controls = [];
@@ -107,6 +107,10 @@
       ensure(defaultControl('wavelength', 'الطول الموجي للضوء', 200, 700, 5, 365, 'nm'));
       ensure(defaultControl('work_function', 'دالة الشغل للمعدن', 1.5, 5.5, .1, 2.3, 'eV'));
       ensure(defaultControl('intensity', 'شدة الضوء الساقط', 10, 100, 1, 75, '%'));
+    } else if (engine === 'decay') {
+      ensure(defaultControl('half_life', 'عمر النصف', 2, 20, .5, 6, 's'));
+      ensure(defaultControl('initial_atoms', 'عدد النوى الابتدائي', 50, 400, 10, 200, 'نواة'));
+      ensure(defaultControl('rate', 'سرعة المحاكاة', .2, 3, .1, 1, '×'));
     }
     if (!controls.length) controls.push(defaultControl('rate', 'معدل الحركة', .1, 3, .05, 1, '×'));
     if (controls.length > 7) controls = controls.slice(0, 7);
@@ -196,6 +200,23 @@
     };
   };
 
+  ENGINE.decayLaw = function (initialCount, halfLife, elapsed) {
+    var n0 = Math.max(0, finite(initialCount, 0));
+    var th = Math.max(.0001, finite(halfLife, 1));
+    var t = Math.max(0, finite(elapsed, 0));
+    var lambda = Math.LN2 / th;
+    return {
+      decayConstant: lambda,
+      expectedRemaining: n0 * Math.exp(-lambda * t),
+      fractionRemaining: Math.exp(-lambda * t)
+    };
+  };
+  ENGINE.sampleDecayTime = function (uniform, halfLife) {
+    var u = clamp(finite(uniform, .5), .000001, .999999);
+    var th = Math.max(.0001, finite(halfLife, 1));
+    return -Math.log(1 - u) * th / Math.LN2;
+  };
+
   function paramsFrom(def, state) {
     var out = {};
     def.params.forEach(function (p) {
@@ -215,7 +236,7 @@
       id: 'generated',
       field: spec.field === 'biology' ? 'bio' : 'phy',
       fieldLabel: ({ physics: 'الفيزياء', biology: 'الأحياء', chemistry: 'الكيمياء', astronomy: 'الفلك', mathematics: 'الرياضيات' })[spec.field],
-      icon: spec.engine === 'tokamak' ? 'atom' : spec.engine === 'wave' ? 'activity' : spec.engine === 'pendulum' ? 'clock' : spec.engine === 'interference' ? 'waves' : spec.engine === 'induction' ? 'zap' : spec.engine === 'diffraction' ? 'scan-eye' : spec.engine === 'dipole' ? 'magnet' : spec.engine === 'polarization' ? 'sun' : spec.engine === 'photoelectric' ? 'zap' : 'shapes',
+      icon: spec.engine === 'tokamak' ? 'atom' : spec.engine === 'wave' ? 'activity' : spec.engine === 'pendulum' ? 'clock' : spec.engine === 'interference' ? 'waves' : spec.engine === 'induction' ? 'zap' : spec.engine === 'diffraction' ? 'scan-eye' : spec.engine === 'dipole' ? 'magnet' : spec.engine === 'polarization' ? 'sun' : spec.engine === 'photoelectric' ? 'zap' : spec.engine === 'decay' ? 'atom' : 'shapes',
       title: spec.title,
       short: spec.summary,
       spec: spec,
@@ -292,6 +313,15 @@
           rows.push(['جهد الإيقاف', photo.stoppingPotential.toFixed(3) + ' V']);
           rows.push(['طول موجة العتبة', photo.thresholdWavelength.toFixed(1) + ' nm']);
           rows.push(['الانبعاث', photo.emission ? 'نعم' : 'لا — طاقة الفوتون دون العتبة']);
+        }
+        if (spec.engine === 'decay') {
+          var initial = Math.round(param(prm, 'initial_atoms', 200));
+          var half = param(prm, 'half_life', 6);
+          var decay = ENGINE.decayLaw(initial, half, time);
+          rows.push(['الزمن المحاكى', time.toFixed(2) + ' s']);
+          rows.push(['النوى الباقية (مشاهدة)', decayObserved + ' / ' + decayTotal]);
+          rows.push(['المتوقع إحصائياً', decay.expectedRemaining.toFixed(1) + ' نواة']);
+          rows.push(['ثابت الاضمحلال λ', decay.decayConstant.toFixed(4) + ' s⁻¹']);
         }
         return rows;
       };
@@ -937,7 +967,134 @@
         updateModel(0);
         st.sph.r = 12;
         st.place();
-      } else if (spec.engine === 'photoelectric') {
+      } else if (spec.engine === 'decay') {
+        // Statistical radioactive decay: individual lifetimes are sampled exponentially.
+        var maxAtoms = 400;
+        var atomBase = new Float32Array(maxAtoms * 3);
+        var atomDirection = new Float32Array(maxAtoms * 3);
+        var decayTimes = new Float32Array(maxAtoms);
+        var atomSeeds = seeded(71823), lifeSeeds = seeded(29117);
+        var cloudGeo = new T.BufferGeometry();
+        var cloudPositions = new Float32Array(maxAtoms * 3);
+        var cloudColors = new Float32Array(maxAtoms * 3);
+        cloudGeo.setAttribute('position', new T.BufferAttribute(cloudPositions, 3));
+        cloudGeo.setAttribute('color', new T.BufferAttribute(cloudColors, 3));
+        var cloud = new T.Points(cloudGeo, new T.PointsMaterial({
+          size: .105, vertexColors: true, transparent: true, opacity: .92,
+          blending: T.AdditiveBlending, depthWrite: false
+        }));
+        S.add(cloud);
+
+        var radiationGeo = new T.BufferGeometry();
+        var radiationPositions = new Float32Array(maxAtoms * 3);
+        var radiationColors = new Float32Array(maxAtoms * 3);
+        radiationGeo.setAttribute('position', new T.BufferAttribute(radiationPositions, 3));
+        radiationGeo.setAttribute('color', new T.BufferAttribute(radiationColors, 3));
+        var radiation = new T.Points(radiationGeo, new T.PointsMaterial({
+          size: .09, vertexColors: true, transparent: true, opacity: .92,
+          blending: T.AdditiveBlending, depthWrite: false
+        }));
+        S.add(radiation);
+
+        var shell = new T.Mesh(new T.SphereGeometry(1.82, 28, 20),
+          new T.MeshBasicMaterial({
+            color: 0x3d7890, wireframe: true, transparent: true, opacity: .12, depthWrite: false
+          }));
+        S.add(shell);
+        var center = new T.Mesh(new T.SphereGeometry(.24, 24, 18),
+          new T.MeshPhongMaterial({ color: 0x456579, emissive: 0x132b3c, shininess: 74 }));
+        S.add(center);
+        var decayGlow = new T.PointLight(0x43dfff, .9, 6);
+        decayGlow.position.set(0, 0, 0);
+        S.add(decayGlow);
+
+        var builtAtomCount = 0;
+        function rebuildDecaySample() {
+          var count = Math.round(param(prm, 'initial_atoms', 200));
+          var halfLife = param(prm, 'half_life', 6);
+          for (var a = 0; a < count; a++) {
+            var u = clamp((atomSeeds() + 1) * .5, .00001, .99999);
+            var z = atomSeeds();
+            var phi = (atomSeeds() + 1) * Math.PI;
+            var radial = 1.42 * Math.cbrt(u);
+            var xy = Math.sqrt(Math.max(0, 1 - z * z));
+            atomBase[a * 3] = radial * xy * Math.cos(phi);
+            atomBase[a * 3 + 1] = radial * xy * Math.sin(phi);
+            atomBase[a * 3 + 2] = radial * z;
+
+            var dz = atomSeeds();
+            var dp = (atomSeeds() + 1) * Math.PI;
+            var dxy = Math.sqrt(Math.max(0, 1 - dz * dz));
+            atomDirection[a * 3] = dxy * Math.cos(dp);
+            atomDirection[a * 3 + 1] = dxy * Math.sin(dp);
+            atomDirection[a * 3 + 2] = dz;
+
+            var lifeU = clamp((lifeSeeds() + 1) * .5, .00001, .99999);
+            decayTimes[a] = ENGINE.sampleDecayTime(lifeU, halfLife);
+          }
+          builtAtomCount = count;
+          decayTotal = count;
+          decayObserved = count;
+        }
+        rebuildDecaySample();
+
+        var atomPosition = new T.Vector3();
+        updateModel = function () {
+          var wantedCount = Math.round(param(prm, 'initial_atoms', 200));
+          if (wantedCount !== builtAtomCount) rebuildDecaySample();
+          var activeCount = 0, radiationCount = 0;
+          var halfLife = param(prm, 'half_life', 6);
+          var lambda = Math.LN2 / halfLife;
+          for (var a = 0; a < builtAtomCount; a++) {
+            var x = atomBase[a * 3], y = atomBase[a * 3 + 1], z = atomBase[a * 3 + 2];
+            if (time < decayTimes[a]) {
+              var k = activeCount * 3;
+              cloudPositions[k] = x;
+              cloudPositions[k + 1] = y;
+              cloudPositions[k + 2] = z;
+              var pulse = .72 + .18 * Math.sin(time * 3 + a * .17);
+              cloudColors[k] = .22 * pulse;
+              cloudColors[k + 1] = .78 * pulse;
+              cloudColors[k + 2] = 1 * pulse;
+              activeCount++;
+            } else {
+              var age = time - decayTimes[a];
+              if (age < 2.3) {
+                var j = radiationCount * 3;
+                var travel = .28 + age * 1.12;
+                radiationPositions[j] = x + atomDirection[a * 3] * travel;
+                radiationPositions[j + 1] = y + atomDirection[a * 3 + 1] * travel;
+                radiationPositions[j + 2] = z + atomDirection[a * 3 + 2] * travel;
+                var fade = 1 - age / 2.3;
+                radiationColors[j] = fade;
+                radiationColors[j + 1] = .7 * fade;
+                radiationColors[j + 2] = .18 * fade;
+                radiationCount++;
+              }
+            }
+          }
+          decayObserved = activeCount;
+          cloudGeo.attributes.position.needsUpdate = true;
+          cloudGeo.attributes.color.needsUpdate = true;
+          cloudGeo.setDrawRange(0, activeCount);
+          radiationGeo.attributes.position.needsUpdate = true;
+          radiationGeo.attributes.color.needsUpdate = true;
+          radiationGeo.setDrawRange(0, radiationCount);
+          decayGlow.intensity = .25 + Math.min(2, (decayTotal - activeCount) / Math.max(1, decayTotal) * 2.3);
+          shell.rotation.y = time * .05;
+          shell.rotation.x = Math.sin(time * .08) * .08;
+        };
+        resetModel = function () {
+          time = 0;
+          atomSeeds = seeded(71823);
+          lifeSeeds = seeded(29117);
+          rebuildDecaySample();
+          updateModel(0);
+        };
+        updateModel(0);
+        st.sph.r = 9.8;
+        st.place();
+
         // Einstein photoelectric effect: photon energy sets electron KE; intensity sets count.
         var plateMat = new T.MeshPhongMaterial({
           color: 0x8796a0, metalness: .82, roughness: .34, shininess: 76,
@@ -1698,10 +1855,11 @@
         updateModel(0);
       }
 
+      var decayObserved = 0, decayTotal = 0;
       var lastValues = '';
       return {
         params: prm,
-        setParam: function (key, value) { prm[key] = value; if (spec.engine === 'pendulum') resetModel(); else updateModel(0); },
+        setParam: function (key, value) { prm[key] = value; if (spec.engine === 'pendulum' || (spec.engine === 'decay' && key !== 'rate')) resetModel(); else updateModel(0); },
         getViewScale: function () {
           return Math.round(clamp((25 - st.sph.r) / 17 * 100, 0, 100));
         },
@@ -1723,6 +1881,7 @@
           if (spec.engine === 'dipole') return 'يمثل المغناطيس ثنائي القطب بعزم m موجّه على محور +Y. تُحسب خطوط المجال من علاقة خطوط ثنائي القطب r = L sin²(θ)، ويُحسب المجال عند المجس من B = μ₀m/(4πr³) √(1 + 3cos²θ). غيّر العزم وموقع المجس وعدد خطوط العرض. يفترض النموذج مغناطيساً مثالياً بعيد المجال، ولا يمثل تفاصيل المجال داخل مادة المغناطيس.';
           if (spec.engine === 'polarization') return 'يخرج الضوء غير المستقطب من المرشح الأول مستقطباً خطياً، ثم يمر عبر محلل دوار. تحكم قانون مالوس الشدة بعد المحلل: I = I₁ cos²(θ)، حيث θ زاوية المحورين. عند 0° أو 180° يكون النفاذ أعظمياً، وعند 90° ينعدم الضوء المثالي. النموذج يعرض مرشحين مثاليين ولا يحسب الامتصاص أو الانعكاسات أو الاستقطاب الجزئي.';
           if (spec.engine === 'photoelectric') return 'حسب معادلة أينشتاين للتأثير الكهروضوئي: Eγ = hc/λ، وKmax = max(0, Eγ − φ). إذا كانت طاقة الفوتون أقل من دالة الشغل φ فلا يحدث انبعاث مهما زادت شدة الضوء. عند تجاوز العتبة، تغيّر الشدة عدد الإلكترونات المنبعثة بينما يحدد التردد طاقتها الحركية القصوى. جهد الإيقاف العددي يساوي Kmax بوحدة الفولت عندما تقاس الطاقة بالإلكترون فولت. النموذج مثالي ولا يحسب توزيع طاقات الإلكترونات أو تفاصيل سطح المعدن.';
+          if (spec.engine === 'decay') return 'يصف الاضمحلال الإشعاعي قانوناً إحصائياً: N(t)=N₀e^(−λt)، حيث λ=ln(2)/T½. كل نواة لها زمن اضمحلال عشوائي موزع أُسياً؛ لذلك قد يختلف العدد المشاهد عن المنحنى المتوقع، خصوصاً في العينات الصغيرة. زد عدد النوى لملاحظة تقارب النتيجة من المنحنى الإحصائي. هذا نموذج تعليمي لا يحدد مادة مشعة بعينها أو نشاطاً عملياً.';
           return spec.assumptions || spec.principle || spec.summary;
         },
         dispose: function () { st.dispose(); }
