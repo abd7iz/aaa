@@ -51,7 +51,7 @@
     if (!raw || typeof raw !== 'object' || raw.schema !== 'mukhtabar-sim-v1') {
       throw new Error('صيغة التجربة التي أنشأها الذكاء الاصطناعي غير معروفة.');
     }
-    var engine = ['tokamak', 'wave', 'pendulum', 'interference', 'induction', 'diffraction', 'dipole', 'scene'].indexOf(raw.engine) >= 0 ? raw.engine : null;
+    var engine = ['tokamak', 'wave', 'pendulum', 'interference', 'induction', 'diffraction', 'dipole', 'polarization', 'scene'].indexOf(raw.engine) >= 0 ? raw.engine : null;
     if (!engine) throw new Error('نوع المحاكاة غير مدعوم في محرك المختبر الحالي.');
     var field = FIELDS.indexOf(raw.field) >= 0 ? raw.field : 'physics';
     var used = {}, controls = [];
@@ -99,6 +99,10 @@
       ensure(defaultControl('probe_radius', 'بعد المجس عن المركز', .6, 2.5, .05, 1.3, 'm'));
       ensure(defaultControl('probe_angle', 'زاوية المجس', 0, 90, 1, 45, '°'));
       ensure(defaultControl('line_count', 'عدد خطوط المجال', 8, 24, 1, 16, 'خط'));
+    } else if (engine === 'polarization') {
+      ensure(defaultControl('angle', 'زاوية المحلل', 0, 180, 1, 35, '°'));
+      ensure(defaultControl('wavelength', 'الطول الموجي', 380, 700, 5, 550, 'nm'));
+      ensure(defaultControl('source_intensity', 'شدة المصدر', 10, 100, 1, 100, '%'));
     }
     if (!controls.length) controls.push(defaultControl('rate', 'معدل الحركة', .1, 3, .05, 1, '×'));
     if (controls.length > 7) controls = controls.slice(0, 7);
@@ -167,7 +171,7 @@
       id: 'generated',
       field: spec.field === 'biology' ? 'bio' : 'phy',
       fieldLabel: ({ physics: 'الفيزياء', biology: 'الأحياء', chemistry: 'الكيمياء', astronomy: 'الفلك', mathematics: 'الرياضيات' })[spec.field],
-      icon: spec.engine === 'tokamak' ? 'atom' : spec.engine === 'wave' ? 'activity' : spec.engine === 'pendulum' ? 'clock' : spec.engine === 'interference' ? 'waves' : spec.engine === 'induction' ? 'zap' : spec.engine === 'diffraction' ? 'scan-eye' : spec.engine === 'dipole' ? 'magnet' : 'shapes',
+      icon: spec.engine === 'tokamak' ? 'atom' : spec.engine === 'wave' ? 'activity' : spec.engine === 'pendulum' ? 'clock' : spec.engine === 'interference' ? 'waves' : spec.engine === 'induction' ? 'zap' : spec.engine === 'diffraction' ? 'scan-eye' : spec.engine === 'dipole' ? 'magnet' : spec.engine === 'polarization' ? 'sun' : 'shapes',
       title: spec.title,
       short: spec.summary,
       spec: spec,
@@ -223,6 +227,14 @@
           rows.push(['شدة المجال عند المجس', magnitude.toFixed(3) + ' μT']);
           rows.push(['المركبة الأفقية Bx', (bx * 1e6).toFixed(3) + ' μT']);
           rows.push(['المركبة الرأسية By', (by * 1e6).toFixed(3) + ' μT']);
+        }
+        if (spec.engine === 'polarization') {
+          var angle = param(prm, 'angle', 35) * Math.PI / 180;
+          var source = param(prm, 'source_intensity', 100) / 100;
+          var transmission = Math.cos(angle) * Math.cos(angle);
+          rows.push(['نفاذية المحلل', (transmission * 100).toFixed(1) + '%']);
+          rows.push(['شدة الضوء بعد المستقطب الأول', (source * 50).toFixed(1) + '% من المصدر']);
+          rows.push(['شدة الضوء الخارج', (source * .5 * transmission * 100).toFixed(1) + '% من المصدر']);
         }
         return rows;
       };
@@ -868,7 +880,121 @@
         updateModel(0);
         st.sph.r = 12;
         st.place();
-      } else if (spec.engine === 'dipole') {
+      } else if (spec.engine === 'polarization') {
+        // Malus' law with an unpolarized source, first polarizer, and rotating analyzer.
+        var radius = 1.12;
+        var sourceColor = new T.Color(0xe8fbff);
+        var source = new T.Mesh(new T.SphereGeometry(.19, 24, 18),
+          new T.MeshPhongMaterial({ color: 0xf2fbff, emissive: 0x2b9ecb, emissiveIntensity: 1.5 }));
+        source.position.set(0, 0, 2.7);
+        S.add(source);
+        var sourceLight = new T.PointLight(0x65dfff, 1.2, 8);
+        sourceLight.position.copy(source.position);
+        S.add(sourceLight);
+
+        // Beam entering the first polarizer.
+        var incomingBeam = new T.Mesh(new T.CylinderGeometry(.14, .14, 1.2, 24),
+          new T.MeshBasicMaterial({ color: 0x8be7ff, transparent: true, opacity: .22, blending: T.AdditiveBlending, depthWrite: false }));
+        incomingBeam.rotation.x = Math.PI / 2;
+        incomingBeam.position.z = 2.0;
+        S.add(incomingBeam);
+
+        var glassMat = new T.MeshPhongMaterial({
+          color: 0x5ebddc, transparent: true, opacity: .16,
+          specular: 0xb9f3ff, shininess: 110, side: T.DoubleSide, depthWrite: false
+        });
+        var rimMat = new T.MeshPhongMaterial({ color: 0x91aab8, metalness: .78, shininess: 95 });
+        function makePolarizer(z, color, lineColor) {
+          var group = new T.Group();
+          group.position.z = z;
+          S.add(group);
+          var disc = new T.Mesh(new T.CylinderGeometry(radius, radius, .10, 64), glassMat);
+          disc.rotation.x = Math.PI / 2;
+          group.add(disc);
+          var rim = new T.Mesh(new T.TorusGeometry(radius, .045, 10, 64), rimMat);
+          rim.position.z = .055;
+          group.add(rim);
+          var marks = new T.Group();
+          group.add(marks);
+          var markMat = new T.LineBasicMaterial({ color: lineColor, transparent: true, opacity: .78 });
+          for (var n = -5; n <= 5; n++) {
+            var offset = n * .18;
+            var half = Math.sqrt(Math.max(0, radius * radius - offset * offset)) * .92;
+            var geo = new T.BufferGeometry().setFromPoints([
+              new T.Vector3(offset, -half, .061),
+              new T.Vector3(offset, half, .061)
+            ]);
+            marks.add(new T.Line(geo, markMat));
+          }
+          return { group: group, marks: marks };
+        }
+        var firstFilter = makePolarizer(1.05, 0x5ebddc, 0x8beaff);
+        var analyzer = makePolarizer(-.55, 0x8d82d8, 0xc7c0ff);
+
+        // Light after the first polarizer and after the rotating analyzer.
+        var transmittedBeam = new T.Mesh(new T.CylinderGeometry(.11, .11, 1.36, 24),
+          new T.MeshBasicMaterial({ color: 0x64ddff, transparent: true, opacity: .2, blending: T.AdditiveBlending, depthWrite: false }));
+        transmittedBeam.rotation.x = Math.PI / 2;
+        transmittedBeam.position.z = .22;
+        S.add(transmittedBeam);
+
+        var outputBeamMat = new T.MeshBasicMaterial({
+          color: 0x7ce8ff, transparent: true, opacity: .18,
+          blending: T.AdditiveBlending, depthWrite: false
+        });
+        var outputBeam = new T.Mesh(new T.CylinderGeometry(.13, .13, 1.42, 24), outputBeamMat);
+        outputBeam.rotation.x = Math.PI / 2;
+        outputBeam.position.z = -1.53;
+        S.add(outputBeam);
+
+        var screen = new T.Mesh(new T.CircleGeometry(.82, 64),
+          new T.MeshBasicMaterial({ color: 0x8beaff, transparent: true, opacity: .12, blending: T.AdditiveBlending, depthWrite: false }));
+        screen.position.z = -2.38;
+        S.add(screen);
+        var screenRim = new T.Mesh(new T.TorusGeometry(.84, .045, 10, 64), rimMat);
+        screenRim.position.z = -2.39;
+        S.add(screenRim);
+
+        var sourcePulse = new T.PointLight(0x55dfff, 1.1, 4);
+        sourcePulse.position.set(0, 0, -.9);
+        S.add(sourcePulse);
+
+        function colorForWavelength(nm) {
+          var r = 0, g = 0, b = 0;
+          if (nm < 440) { r = (440 - nm) / 60; b = 1; }
+          else if (nm < 490) { g = (nm - 440) / 50; b = 1; }
+          else if (nm < 510) { g = 1; b = (510 - nm) / 20; }
+          else if (nm < 580) { r = (nm - 510) / 70; g = 1; }
+          else if (nm < 645) { r = 1; g = (645 - nm) / 65; }
+          else { r = 1; }
+          return new T.Color(r, g, b);
+        }
+        var lastPolarization = '';
+        updateModel = function () {
+          var angleDeg = param(prm, 'angle', 35);
+          var angle = angleDeg * Math.PI / 180;
+          var sourceIntensity = param(prm, 'source_intensity', 100) / 100;
+          var trans = Math.cos(angle) * Math.cos(angle);
+          var output = .5 * sourceIntensity * trans;
+          analyzer.group.rotation.z = angle;
+          var wavelength = colorForWavelength(param(prm, 'wavelength', 550));
+          incomingBeam.material.color.copy(wavelength);
+          transmittedBeam.material.color.copy(wavelength);
+          outputBeamMat.color.copy(wavelength);
+          screen.material.color.copy(wavelength);
+          outputBeamMat.opacity = .025 + output * .58;
+          screen.material.opacity = .025 + output * 1.15;
+          sourcePulse.color.copy(wavelength);
+          sourcePulse.intensity = .25 + output * 2.5;
+          sourceLight.intensity = .35 + sourceIntensity * .9;
+          incomingBeam.material.opacity = .04 + sourceIntensity * .22;
+          transmittedBeam.material.opacity = .025 + sourceIntensity * .18;
+        };
+        resetModel = function () { time = 0; updateModel(0); };
+        updateModel(0);
+        st.sph.r = 10.8;
+        st.place();
+
         // Ideal magnetic dipole field; the magnet moment points along +Y.
         var magnetGroup = new T.Group();
         S.add(magnetGroup);
@@ -1393,6 +1519,7 @@
           if (spec.engine === 'interference') return 'تجربة شقي يونغ: تتراكب موجتان ضوئيتان مترابطتان فتظهر أهداب مضيئة ومعتمة على الشاشة. يحسب النموذج شدة الأهداب بالعلاقة I ∝ cos²(π d x / λ L)، ويعرض المسافة بين الأهداب Δy = λL/d. النموذج يفترض ضوءاً أحادي اللون وشقين مثاليين وتقريب المجال البعيد، ولا يحسب حيود الشق ذي العرض المحدود.';
           if (spec.engine === 'diffraction') return 'محزوز الحيود يتكون من عدد كبير من الشقوق المتوازية. تتحدد الاتجاهات الرئيسية المضيئة بشرط d sin(θ) = mλ، بينما يحدد عرض الشق غلاف الحيود. يحسب النموذج نمط فراونهوفر لشقوق متساوية مثالية: I ∝ sinc²(α) [sin(Nβ)/(N sin(β))]². غيّر الطول الموجي وتباعد الشقوق وعددها وعرضها وبعد الشاشة. نهمل خشونة المحزوز والانعكاسات والفقد.';
           if (spec.engine === 'dipole') return 'يمثل المغناطيس ثنائي القطب بعزم m موجّه على محور +Y. تُحسب خطوط المجال من علاقة خطوط ثنائي القطب r = L sin²(θ)، ويُحسب المجال عند المجس من B = μ₀m/(4πr³) √(1 + 3cos²θ). غيّر العزم وموقع المجس وعدد خطوط العرض. يفترض النموذج مغناطيساً مثالياً بعيد المجال، ولا يمثل تفاصيل المجال داخل مادة المغناطيس.';
+          if (spec.engine === 'polarization') return 'يخرج الضوء غير المستقطب من المرشح الأول مستقطباً خطياً، ثم يمر عبر محلل دوار. تحكم قانون مالوس الشدة بعد المحلل: I = I₁ cos²(θ)، حيث θ زاوية المحورين. عند 0° أو 180° يكون النفاذ أعظمياً، وعند 90° ينعدم الضوء المثالي. النموذج يعرض مرشحين مثاليين ولا يحسب الامتصاص أو الانعكاسات أو الاستقطاب الجزئي.';
           return spec.assumptions || spec.principle || spec.summary;
         },
         dispose: function () { st.dispose(); }
