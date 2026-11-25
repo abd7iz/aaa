@@ -51,7 +51,7 @@
     if (!raw || typeof raw !== 'object' || raw.schema !== 'mukhtabar-sim-v1') {
       throw new Error('صيغة التجربة التي أنشأها الذكاء الاصطناعي غير معروفة.');
     }
-    var engine = ['tokamak', 'wave', 'pendulum', 'interference', 'scene'].indexOf(raw.engine) >= 0 ? raw.engine : null;
+    var engine = ['tokamak', 'wave', 'pendulum', 'interference', 'induction', 'scene'].indexOf(raw.engine) >= 0 ? raw.engine : null;
     if (!engine) throw new Error('نوع المحاكاة غير مدعوم في محرك المختبر الحالي.');
     var field = FIELDS.indexOf(raw.field) >= 0 ? raw.field : 'physics';
     var used = {}, controls = [];
@@ -82,6 +82,12 @@
       ensure(defaultControl('wavelength', 'الطول الموجي للضوء', 380, 700, 5, 550, 'nm'));
       ensure(defaultControl('separation', 'المسافة بين الشقين', .1, .6, .01, .25, 'mm'));
       ensure(defaultControl('distance', 'بعد الشاشة', .5, 2.5, .05, 1.5, 'm'));
+    } else if (engine === 'induction') {
+      ensure(defaultControl('field', 'شدة المجال المغناطيسي', .1, 2, .05, .8, 'T'));
+      ensure(defaultControl('area', 'مساحة الملف', .01, .1, .005, .04, 'm²'));
+      ensure(defaultControl('turns', 'عدد لفات الملف', 10, 200, 5, 100, 'لفة'));
+      ensure(defaultControl('angularSpeed', 'السرعة الزاوية', 1, 30, .5, 12, 'rad/s'));
+      ensure(defaultControl('resistance', 'مقاومة الدائرة', .5, 20, .5, 4, 'Ω'));
     }
     if (!controls.length) controls.push(defaultControl('rate', 'معدل الحركة', .1, 3, .05, 1, '×'));
     if (controls.length > 7) controls = controls.slice(0, 7);
@@ -150,7 +156,7 @@
       id: 'generated',
       field: spec.field === 'biology' ? 'bio' : 'phy',
       fieldLabel: ({ physics: 'الفيزياء', biology: 'الأحياء', chemistry: 'الكيمياء', astronomy: 'الفلك', mathematics: 'الرياضيات' })[spec.field],
-      icon: spec.engine === 'tokamak' ? 'atom' : spec.engine === 'wave' ? 'activity' : spec.engine === 'pendulum' ? 'clock' : spec.engine === 'interference' ? 'waves' : 'shapes',
+      icon: spec.engine === 'tokamak' ? 'atom' : spec.engine === 'wave' ? 'activity' : spec.engine === 'pendulum' ? 'clock' : spec.engine === 'interference' ? 'waves' : spec.engine === 'induction' ? 'zap' : 'shapes',
       title: spec.title,
       short: spec.summary,
       spec: spec,
@@ -175,6 +181,19 @@
           var fringeMm = param(prm, 'wavelength', 550) * param(prm, 'distance', 1.5) /
             Math.max(.001, param(prm, 'separation', .25)) / 1000;
           rows.push(['المسافة بين الأهداب', fringeMm.toFixed(2) + ' mm']);
+        }
+        if (spec.engine === 'induction') {
+          var peak = param(prm, 'turns', 100) * param(prm, 'field', .8) *
+            param(prm, 'area', .04) * param(prm, 'angularSpeed', 12);
+          var phase = time * param(prm, 'angularSpeed', 12);
+          var emf = peak * Math.sin(phase);
+          var fluxLinkage = param(prm, 'turns', 100) * param(prm, 'field', .8) *
+            param(prm, 'area', .04) * Math.cos(phase);
+          var current = emf / Math.max(.01, param(prm, 'resistance', 4));
+          rows.push(['الجهد المستحث اللحظي', emf.toFixed(2) + ' V']);
+          rows.push(['أقصى جهد مستحث', peak.toFixed(2) + ' V']);
+          rows.push(['التيار اللحظي', current.toFixed(2) + ' A']);
+          rows.push(['ارتباط الفيض المغناطيسي', fluxLinkage.toFixed(3) + ' Wb·turn']);
         }
         return rows;
       };
@@ -656,6 +675,170 @@
         updateModel(0);
         st.sph.r = 10.5;
         st.place();
+      } else if (spec.engine === 'induction') {
+        // Faraday induction: rotating coil between N/S pole blocks in a uniform magnetic field.
+        var fieldMat = new T.MeshBasicMaterial({
+          color: 0x4ccfff, transparent: true, opacity: .34,
+          blending: T.AdditiveBlending, depthWrite: false
+        });
+        var fieldYs = [-.95, 0, .95], fieldZs = [-.72, 0, .72];
+        fieldYs.forEach(function (yy) {
+          fieldZs.forEach(function (zz) {
+            var lineGeo = new T.BufferGeometry().setFromPoints([
+              new T.Vector3(-1.72, yy, zz), new T.Vector3(1.72, yy, zz)
+            ]);
+            S.add(new T.Line(lineGeo, fieldMat));
+          });
+        });
+
+        var northMat = new T.MeshPhongMaterial({
+          color: 0xa94343, emissive: 0x250606, metalness: .38, shininess: 55
+        });
+        var southMat = new T.MeshPhongMaterial({
+          color: 0x315eaa, emissive: 0x07152b, metalness: .38, shininess: 55
+        });
+        var north = new T.Mesh(new T.BoxGeometry(.55, 2.55, 2.15), northMat);
+        var south = new T.Mesh(new T.BoxGeometry(.55, 2.55, 2.15), southMat);
+        north.position.x = -2.12; south.position.x = 2.12;
+        S.add(north); S.add(south);
+
+        function poleLabel(letter, fill, x) {
+          var canvas = document.createElement('canvas');
+          canvas.width = 128; canvas.height = 128;
+          var ctx = canvas.getContext('2d');
+          ctx.clearRect(0, 0, 128, 128);
+          ctx.fillStyle = fill;
+          ctx.beginPath(); ctx.arc(64, 64, 48, 0, Math.PI * 2); ctx.fill();
+          ctx.fillStyle = '#ffffff';
+          ctx.font = 'bold 72px Arial';
+          ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+          ctx.fillText(letter, 64, 66);
+          var texture = new T.CanvasTexture(canvas);
+          var sprite = new T.Sprite(new T.SpriteMaterial({ map: texture, transparent: true, depthWrite: false }));
+          sprite.scale.set(.55, .55, 1);
+          sprite.position.set(x, 0, 1.12);
+          S.add(sprite);
+        }
+        poleLabel('N', '#bd4141', -2.12);
+        poleLabel('S', '#326ac2', 2.12);
+
+        var poleArrow = new T.ArrowHelper(
+          new T.Vector3(1, 0, 0), new T.Vector3(-1.75, 1.42, .9),
+          3.5, 0x7be5ff, .2, .12
+        );
+        S.add(poleArrow);
+
+        // Rotating rectangular copper coil in the magnetic gap.
+        var rotor = new T.Group();
+        S.add(rotor);
+        var copperMat = new T.MeshPhongMaterial({
+          color: 0xc47a43, emissive: 0x351607, specular: 0xffd1a1, shininess: 95
+        });
+        function addRod(w, h, d, x, y, z) {
+          var rod = new T.Mesh(new T.BoxGeometry(w, h, d), copperMat);
+          rod.position.set(x, y, z);
+          rotor.add(rod);
+        }
+        addRod(.085, 1.48, .085, 0, 0, -.88);
+        addRod(.085, 1.48, .085, 0, 0, .88);
+        addRod(.085, .085, 1.84, 0, -.70, 0);
+        addRod(.085, .085, 1.84, 0, .70, 0);
+
+        var shaftMat = new T.MeshPhongMaterial({ color: 0x9babb8, metalness: .84, shininess: 100 });
+        var shaft = new T.Mesh(new T.CylinderGeometry(.075, .075, 2.55, 20), shaftMat);
+        rotor.add(shaft);
+
+        // Charge carriers moving around the coil; direction reverses with induced current.
+        var dotCount = 32, dotPositions = new Float32Array(dotCount * 3);
+        var dotGeo = new T.BufferGeometry();
+        dotGeo.setAttribute('position', new T.BufferAttribute(dotPositions, 3));
+        var dotMaterial = new T.PointsMaterial({
+          color: 0x59e8ff, size: .12, transparent: true, opacity: .9,
+          blending: T.AdditiveBlending, depthWrite: false
+        });
+        var chargeDots = new T.Points(dotGeo, dotMaterial);
+        rotor.add(chargeDots);
+        function loopPoint(u, out) {
+          var perimeter = ((u % 1) + 1) % 1 * 6.36;
+          if (perimeter < 1.40) return out.set(0, -.70 + perimeter, -.88);
+          perimeter -= 1.40;
+          if (perimeter < 1.78) return out.set(0, .70, -.88 + perimeter);
+          perimeter -= 1.78;
+          if (perimeter < 1.40) return out.set(0, .70 - perimeter, .88);
+          perimeter -= 1.40;
+          return out.set(0, -.70, .88 - perimeter);
+        }
+        var dotVec = new T.Vector3();
+
+        // Oscilloscope: one cycle of induced voltage and a marker for the current phase.
+        var graphY = -2.02, graphZ = .15, graphWidth = 3.9, graphAmp = .43;
+        var graphPoints = [];
+        for (var gi = 0; gi <= 180; gi++) {
+          var phasePoint = gi / 180 * Math.PI * 2;
+          graphPoints.push(new T.Vector3(
+            -graphWidth / 2 + graphWidth * gi / 180,
+            graphY + Math.sin(phasePoint) * graphAmp,
+            graphZ
+          ));
+        }
+        var graphLine = new T.Line(
+          new T.BufferGeometry().setFromPoints(graphPoints),
+          new T.LineBasicMaterial({ color: 0x48d8ff, transparent: true, opacity: .9 })
+        );
+        S.add(graphLine);
+        var axisGeo = new T.BufferGeometry().setFromPoints([
+          new T.Vector3(-graphWidth / 2, graphY, graphZ - .01),
+          new T.Vector3(graphWidth / 2, graphY, graphZ - .01)
+        ]);
+        S.add(new T.Line(axisGeo, new T.LineBasicMaterial({ color: 0x64748b, transparent: true, opacity: .45 })));
+        var phaseMarker = new T.Mesh(new T.SphereGeometry(.085, 16, 12),
+          new T.MeshBasicMaterial({ color: 0xffd166 }));
+        S.add(phaseMarker);
+        var graphLabel = new T.Mesh(new T.BoxGeometry(.9, .035, .035),
+          new T.MeshBasicMaterial({ color: 0x52687d }));
+        graphLabel.position.set(0, graphY - .62, graphZ);
+        S.add(graphLabel);
+
+        var coilLight = new T.PointLight(0x43dfff, 1.4, 9);
+        coilLight.position.set(0, .8, 0); S.add(coilLight);
+        function inductionValues() {
+          var B = param(prm, 'field', .8);
+          var A = param(prm, 'area', .04);
+          var N = param(prm, 'turns', 100);
+          var omega = param(prm, 'angularSpeed', 12);
+          var Rload = Math.max(.01, param(prm, 'resistance', 4));
+          var phase = time * omega;
+          var peak = N * B * A * omega;
+          var emf = peak * Math.sin(phase);
+          var flux = N * B * A * Math.cos(phase);
+          return { phase: phase, peak: peak, emf: emf, flux: flux, current: emf / Rload };
+        }
+        updateModel = function () {
+          var v = inductionValues();
+          rotor.rotation.y = v.phase;
+          dotMaterial.color.set(v.current >= 0 ? 0x5be7ff : 0xffc36b);
+          dotMaterial.opacity = .22 + .78 * Math.min(1, Math.abs(v.current) * Math.max(.01, param(prm, 'resistance', 4)) / Math.max(.001, v.peak));
+          for (var di = 0; di < dotCount; di++) {
+            var direction = v.current >= 0 ? 1 : -1;
+            var phaseU = di / dotCount + direction * time * .7;
+            loopPoint(phaseU, dotVec);
+            dotPositions[di * 3] = dotVec.x;
+            dotPositions[di * 3 + 1] = dotVec.y;
+            dotPositions[di * 3 + 2] = dotVec.z;
+          }
+          dotGeo.attributes.position.needsUpdate = true;
+          var cycle = ((v.phase % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2);
+          phaseMarker.position.set(
+            -graphWidth / 2 + graphWidth * cycle / (Math.PI * 2),
+            graphY + Math.sin(cycle) * graphAmp,
+            graphZ + .04
+          );
+          coilLight.intensity = .65 + .8 * Math.abs(Math.sin(v.phase));
+        };
+        resetModel = function () { time = 0; updateModel(0); };
+        updateModel(0);
+        st.sph.r = 12;
+        st.place();
       } else if (spec.engine === 'wave') {
         var length = 12, N = 260, data = new Float32Array((N + 1) * 3), geo = new T.BufferGeometry();
         geo.setAttribute('position', new T.BufferAttribute(data, 3));
@@ -803,6 +986,7 @@
           if (spec.engine === 'tokamak') return 'تتحرك الجسيمات في مسارات حلزونية مع دوران مغزلي صغير حول خطوط المجال. تغيير شدة المجال يغيّر التفاف المسارات وميل خطوط المجال، والحرارة تغيّر سرعة الحركة والتموج، والكثافة تغيّر عدد الجسيمات ووهج البلازما. هذا نموذج بصري تعليمي مبسّط، لا يحل معادلات MHD ولا يتنبأ باستقرار مفاعل حقيقي.';
           if (spec.engine === 'pendulum') return 'يتحرك الثقل وفق معادلة البندول مع تكامل عددي مبسط وتخميد اختياري. النموذج ثنائي الأبعاد داخل مشهد ثلاثي الأبعاد.';
           if (spec.engine === 'wave') return 'يمثل الخط موجة جيبية مثالية. غيّر السعة والتردد وسرعة الانتشار ولاحظ تغير شكل الموجة وطورها.';
+          if (spec.engine === 'induction') return 'يعرض النموذج قانون فاراداي للحث الكهرومغناطيسي: ε = −N dΦ/dt. عند دوران الملف في مجال منتظم يتغير الفيض Φ = BA cos(ωt)، فينشأ جهد متناوب سعته القصوى εmax = NBAω. المقاومة تحدد التيار اللحظي I = ε/R. النموذج مثالي ولا يحسب الفقد أو المجال غير المنتظم أو تأثير الحمل على سرعة الدوران.';
           if (spec.engine === 'interference') return 'تجربة شقي يونغ: تتراكب موجتان ضوئيتان مترابطتان فتظهر أهداب مضيئة ومعتمة على الشاشة. يحسب النموذج شدة الأهداب بالعلاقة I ∝ cos²(π d x / λ L)، ويعرض المسافة بين الأهداب Δy = λL/d. النموذج يفترض ضوءاً أحادي اللون وشقين مثاليين وتقريب المجال البعيد، ولا يحسب حيود الشق ذي العرض المحدود.';
           return spec.assumptions || spec.principle || spec.summary;
         },
