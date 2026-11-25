@@ -161,7 +161,7 @@ return [];
 }
 function format(n){return Number(n).toFixed(2).replace(/\.?0+$/,'')}
 function controlMarkup(item){return '<label class="control"><span class="control-head"><span>'+item.label+'</span><b id="value-'+item.key+'">'+format(params[item.key])+ ' '+item.unit+'</b></span><input type="range" data-var="'+item.key+'" min="'+item.min+'" max="'+item.max+'" step="'+item.step+'" value="'+params[item.key]+'"></label>'}
-function renderControls(){const list=spec(active.type);$('#controls').innerHTML=list.length?list.map(controlMarkup).join(''):'<div class="hint">انتقل بين مراحل الانقسام من زري السابق والتالي.</div>';$$('[data-var]').forEach(input=>input.addEventListener('input',()=>{params[input.dataset.var]=Number(input.value);$('#value-'+input.dataset.var).textContent=format(params[input.dataset.var])+' '+(spec(active.type).find(x=>x.key===input.dataset.var)||{}).unit;updateMetrics();drawScene()}))}
+function renderControls(){const list=spec(active.type);$('#controls').innerHTML=list.length?list.map(controlMarkup).join(''):'<div class="hint">انتقل بين مراحل الانقسام من زري السابق والتالي.</div>';$$('[data-var]').forEach(input=>input.addEventListener('input',()=>{params[input.dataset.var]=Number(input.value);$('#value-'+input.dataset.var).textContent=format(params[input.dataset.var])+' '+(spec(active.type).find(x=>x.key===input.dataset.var)||{}).unit;updateMetrics();if(threeState&&threeState.onParamsChange)threeState.onParamsChange();drawScene()}))}
 function projectileData(){const a=params.angle*Math.PI/180,v=params.speed,g=params.gravity,t=2*v*Math.sin(a)/g,range=v*Math.cos(a)*t,max=v*v*Math.sin(a)**2/(2*g);return {time:t,range:range,height:max,vx:v*Math.cos(a),vy:v*Math.sin(a)}}
 function fallingData(){const h=params.height,g=params.gravity,t=Math.sqrt(2*h/g),v=Math.sqrt(2*g*h);return {time:t,velocity:v}}
 function pendulumData(){const l=params.length,g=params.gravity,period=2*Math.PI*Math.sqrt(l/g);return {period,frequency:1/period,omega:Math.sqrt(g/l)}}
@@ -183,7 +183,7 @@ if(active.type==='circuit'){const d=circuitData();html=metric('شدة التيا
 if(active.type==='induction'){const d=inductionData();html=metric('أقصى جهد حثي',format(d.maxEmf)+' V')+metric('التردد',format(d.frequency)+' Hz')+metric('الزمن الدوري',format(d.period)+' ث')+metric('الجهد اللحظي',format(d.emf)+' V');}
 if(active.type==='magneticforce'){const d=magneticForceData();html=metric('القوة المغناطيسية',format(d.force)+' N')+metric('كثافة المجال',format(params.field)+' T')+metric('التيار',format(params.current)+' A')+metric('الزاوية',format(params.angle)+'°');}
 if(active.type==='mitosis3d'){html=metric('عدد المراحل','6')+metric('المرحلة الحالية',(stage+1)+' / 6')+metric('العملية','انقسام متساوٍ')+metric('الناتج','خليتان بنتان')}
-$('#metrics').innerHTML=html;$('#simDescription').textContent=desc;$('#simHeading').textContent=active.type==='mitosis3d'?'مراحل الانقسام':active.type==='orbit3d'?'حركة الكوكب':'النتائج المحسوبة';$('#visualLabel').textContent=active.type==='mitosis3d'?'نموذج خلية تفاعلي':active.type==='orbit3d'?'مدار دائري مبسّط':'محاكاة مرئية';$('#graphWrap').style.display=active.type==='mitosis3d'?'none':'block';$('#graphTitle').textContent=active.type==='projectile'?'الارتفاع مع الزمن':active.type==='freefall'?'مسافة السقوط مع الزمن':active.type==='pendulum'?'إزاحة البندول مع الزمن':active.type==='orbit3d'?'موضع الكوكب مع الزمن':active.type==='newton'?'السرعة مع الزمن':active.type==='harmonic'?'إزاحة النابض مع الزمن':active.type==='induction'?'الجهد الحثي مع الزمن':active.type==='magneticforce'?'القوة مقابل الزاوية':'العلاقة بين الجهد والتيار';}
+$('#metrics').innerHTML=html;$('#simDescription').textContent=desc;$('#simHeading').textContent=active.type==='mitosis3d'?'مراحل الانقسام':active.type==='orbit3d'?'حركة الكوكب':'النتائج المحسوبة';$('#visualLabel').textContent=active.type==='mitosis3d'?'خلية ثلاثية الأبعاد بتفاصيل عضيات':active.type==='orbit3d'?'الأرض بخريطة سطحية وغيوم ثلاثية الأبعاد':active.type==='projectile'?'جسم كروي ومسار ثلاثي الأبعاد':'محاكاة مرئية';$('#graphWrap').style.display=active.type==='mitosis3d'?'none':'block';$('#graphTitle').textContent=active.type==='projectile'?'الارتفاع مع الزمن':active.type==='freefall'?'مسافة السقوط مع الزمن':active.type==='pendulum'?'إزاحة البندول مع الزمن':active.type==='orbit3d'?'موضع الكوكب مع الزمن':active.type==='newton'?'السرعة مع الزمن':active.type==='harmonic'?'إزاحة النابض مع الزمن':active.type==='induction'?'الجهد الحثي مع الزمن':active.type==='magneticforce'?'القوة مقابل الزاوية':'العلاقة بين الجهد والتيار';}
 function stageText(){const cell=active.type==='mitosis3d';$('#stagePanel').style.display=cell?'block':'none';$('#prevStage').style.display=cell?'inline-block':'none';$('#nextStage').style.display=cell?'inline-block':'none';if(cell){$('#stageCounter').textContent='المرحلة '+(stage+1)+' من 6';$('#stageName').textContent=stageData[stage].name;$('#stageDescription').textContent=stageData[stage].desc}else{$('#stagePanel').style.display='none'}}
 function openExperiment(exp){
 closeThree();active=Object.assign({},exp);params=Object.assign({},defaults[active.type]||{},active.params||{});stage=0;playing=true;elapsed=0;lastFrame=0;
@@ -192,7 +192,7 @@ $('#modalTitle').textContent=active.title||names[active.type];$('#modalSub').tex
 $('#playPause').textContent='إيقاف الحركة';$('#experimentModal').classList.add('open');document.body.style.overflow='hidden';
 $('#simCanvas').style.display='block';$('#webglCanvas').style.display='none';$('#webglCanvas').width=0;$('#webglCanvas').height=0;
 renderControls();updateMetrics();stageText();drawScene();startLoop();
-if(active.type==='mitosis3d')setupThree().catch(()=>{$('#webglCanvas').style.display='none';$('#simCanvas').style.display='block';});
+if(['mitosis3d','orbit3d','projectile'].includes(active.type))setupThree().catch(()=>{closeThree();$('#webglCanvas').style.display='none';$('#simCanvas').style.display='block';toast('تعذر تشغيل العرض ثلاثي الأبعاد على هذا الجهاز؛ رجعنا للرسم البديل.');});
 if(tg&&tg.BackButton){try{tg.BackButton.show();tg.BackButton.onClick(closeExperiment)}catch(e){}}
 }
 function closeModal(){closeThree();$('#experimentModal').classList.remove('open');document.body.style.overflow='';active=null;if(tg&&tg.BackButton){try{tg.BackButton.hide();tg.BackButton.offClick(closeExperiment)}catch(e){}}}
@@ -225,48 +225,235 @@ label(ctx,'رسم تعليمي مبسط · المرحلة '+(stage+1),14,h-15)}
 function drawScene(){if(!active)return;const canvas=$('#simCanvas');if(!canvas||canvas.style.display==='none')return;const size=resizeCanvas(canvas),ctx=size.ctx,w=size.w,h=size.h;if(active.type==='projectile')drawProjectile(ctx,w,h);else if(active.type==='freefall')drawFreefall(ctx,w,h);else if(active.type==='pendulum')drawPendulum(ctx,w,h);else if(active.type==='orbit3d')drawOrbit(ctx,w,h);else if(active.type==='newton')drawNewton(ctx,w,h);else if(active.type==='harmonic')drawHarmonic(ctx,w,h);else if(active.type==='circuit')drawCircuit(ctx,w,h);else if(active.type==='induction')drawInduction(ctx,w,h);else if(active.type==='magneticforce')drawMagneticForce(ctx,w,h);else drawMitosis(ctx,w,h);renderGraph()}
 function graphSeries(){const count=90,points=[],g={x:'الزمن (ث)',y:''};if(active.type==='magneticforce'){g.x='الزاوية (°)';g.y='القوة (N)';for(let i=0;i<=count;i++){const a=180*i/count;points.push({x:a,y:params.field*params.current*params.length*Math.sin(a*Math.PI/180)})}return {points,labels:g}}if(active.type==='circuit'){g.x='الجهد (V)';g.y='التيار (A)';for(let i=0;i<=count;i++){const v=params.voltage*i/count;points.push({x:v,y:v/params.resistance})}return {points,labels:g}}let end=5;if(active.type==='projectile')end=projectileData().time;else if(active.type==='freefall')end=fallingData().time;else if(active.type==='harmonic')end=harmonicData().period*2;else if(active.type==='pendulum')end=pendulumData().period*2;else if(active.type==='induction')end=inductionData().period*2;else if(active.type==='orbit3d')end=2*Math.PI/params.speed;for(let i=0;i<=count;i++){const t=end*i/count;let y=0;if(active.type==='projectile'){const d=projectileData();y=d.vy*t-.5*params.gravity*t*t;g.y='الارتفاع (م)'}else if(active.type==='freefall'){y=.5*params.gravity*t*t;g.y='مسافة السقوط (م)'}else if(active.type==='pendulum'){y=params.length*Math.sin(params.angle*Math.PI/180)*Math.cos(pendulumData().omega*t);g.y='الإزاحة (م)'}else if(active.type==='orbit3d'){y=params.radius*Math.cos(params.speed*t);g.y='الموضع الأفقي'}else if(active.type==='newton'){y=newtonData().acceleration*t;g.y='السرعة (م/ث)'}else if(active.type==='harmonic'){y=params.amplitude*Math.cos(harmonicData().omega*t);g.y='الإزاحة (م)'}else if(active.type==='induction'){y=inductionData().maxEmf*Math.sin(inductionData().omega*t);g.y='الجهد الحثي (V)'}points.push({x:t,y})}return {points,labels:g}}
 function renderGraph(){if(!active||active.type==='mitosis3d')return;const canvas=$('#graphCanvas');if(!canvas)return;const box=canvas.getBoundingClientRect(),w=Math.max(20,box.width),h=Math.max(60,box.height),dpr=Math.min(devicePixelRatio||1,2);canvas.width=Math.round(w*dpr);canvas.height=Math.round(h*dpr);const ctx=canvas.getContext('2d');ctx.setTransform(dpr,0,0,dpr,0,0);ctx.clearRect(0,0,w,h);const data=graphSeries(),values=data.points.map(p=>p.y);let min=Math.min(0,...values),max=Math.max(0,...values);if(max-min<1e-9)max=min+1;const pad={l:34,r:8,t:8,b:24},pw=w-pad.l-pad.r,ph=h-pad.t-pad.b;ctx.font='9px system-ui';ctx.strokeStyle='rgba(125,153,180,.16)';ctx.lineWidth=1;for(let i=0;i<=4;i++){const y=pad.t+ph*i/4;ctx.beginPath();ctx.moveTo(pad.l,y);ctx.lineTo(w-pad.r,y);ctx.stroke()}for(let i=0;i<=4;i++){const x=pad.l+pw*i/4;ctx.beginPath();ctx.moveTo(x,pad.t);ctx.lineTo(x,h-pad.b);ctx.stroke()}ctx.fillStyle='#899db3';ctx.textAlign='right';ctx.fillText(format(max),pad.l-5,pad.t+4);ctx.fillText(format(min),pad.l-5,h-pad.b);ctx.textAlign='center';ctx.fillText(data.labels.x,w/2,h-5);ctx.strokeStyle='#72d9e5';ctx.lineWidth=2.2;ctx.beginPath();data.points.forEach((p,i)=>{const x=pad.l+pw*i/(data.points.length-1),y=pad.t+ph-(p.y-min)/(max-min)*ph;if(i===0)ctx.moveTo(x,y);else ctx.lineTo(x,y)});ctx.stroke();if(active.type==='magneticforce'||active.type!=='circuit'){const end=active.type==='magneticforce'?180:(data.points[data.points.length-1].x||1),progress=active.type==='magneticforce'?params.angle/180:Math.min(1,elapsed/end),x=pad.l+pw*progress;ctx.setLineDash([3,3]);ctx.strokeStyle='rgba(232,195,123,.65)';ctx.beginPath();ctx.moveTo(x,pad.t);ctx.lineTo(x,h-pad.b);ctx.stroke();ctx.setLineDash([])}}
-function startLoop(){cancelAnimationFrame(raf);lastFrame=0;function frame(ts){if(!active)return;if(lastFrame&&playing)elapsed=Math.min(elapsed+(ts-lastFrame)/1000,1e7);lastFrame=ts;if(!threeState)drawScene();else renderGraph();raf=requestAnimationFrame(frame)}raf=requestAnimationFrame(frame)}
-function reset(){elapsed=0;stage=0;playing=true;$('#playPause').textContent='إيقاف الحركة';if(active.type==='mitosis3d'){updateThreeStage();stageText();updateMetrics()}drawScene()}
+function startLoop(){cancelAnimationFrame(raf);lastFrame=0;function frame(ts){if(!active)return;if(lastFrame&&playing)elapsed=Math.min(elapsed+(ts-lastFrame)/1000,1e7);lastFrame=ts;if(!threeState)drawScene();else{if(threeState.update)threeState.update();if(threeState.controls)threeState.controls.update();threeState.renderer.render(threeState.scene,threeState.camera);if(active.type!=='mitosis3d')renderGraph()}raf=requestAnimationFrame(frame)}raf=requestAnimationFrame(frame)}
+function reset(){elapsed=0;stage=0;playing=true;$('#playPause').textContent='إيقاف الحركة';if(active.type==='mitosis3d'){updateThreeStage();stageText();updateMetrics()}if(threeState&&threeState.reset)threeState.reset();drawScene()}
 function setStage(next){stage=(next+stageData.length)%stageData.length;stageText();updateMetrics();if(threeState)updateThreeStage();else drawScene()}
 async function setupThree(){
-if(active.type!=='mitosis3d')return;
+const type=active&&active.type;
+if(!['mitosis3d','orbit3d','projectile'].includes(type))return;
 const canvas=$('#webglCanvas');
 const THREE=await import('https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js');
-let OrbitControls;
-try{({OrbitControls}=await import('https://cdn.jsdelivr.net/npm/three@0.180.0/examples/jsm/controls/OrbitControls.js'))}catch(e){}
-const renderer=new THREE.WebGLRenderer({canvas:canvas,alpha:true,antialias:true});renderer.setPixelRatio(Math.min(devicePixelRatio||1,2));renderer.setSize(canvas.parentElement.clientWidth,canvas.parentElement.clientHeight,false);renderer.outputColorSpace=THREE.SRGBColorSpace;
-const scene=new THREE.Scene();const camera=new THREE.PerspectiveCamera(38,canvas.parentElement.clientWidth/canvas.parentElement.clientHeight,.1,100);camera.position.set(0,1.2,5.8);
-scene.add(new THREE.AmbientLight(0xbad7ef,1.25));const key=new THREE.DirectionalLight(0x8de4ed,2.3);key.position.set(3,4,5);scene.add(key);const fill=new THREE.PointLight(0xb69aff,32,10);fill.position.set(-3,-2,-2);scene.add(fill);
-const cell=new THREE.Group();scene.add(cell);
-const membrane=new THREE.Mesh(new THREE.SphereGeometry(1.42,56,40),new THREE.MeshPhysicalMaterial({color:0x65cbd8,transparent:true,opacity:.15,roughness:.22,metalness:.05,side:THREE.DoubleSide}));membrane.scale.set(1.18,1,.88);cell.add(membrane);
-const wire=new THREE.Mesh(new THREE.SphereGeometry(1.44,32,24),new THREE.MeshBasicMaterial({color:0x69d9e9,wireframe:true,transparent:true,opacity:.17}));wire.scale.copy(membrane.scale);cell.add(wire);
-const daughterMaterial=new THREE.MeshPhysicalMaterial({color:0x65cbd8,transparent:true,opacity:.17,roughness:.25,side:THREE.DoubleSide});
-const daughterLeft=new THREE.Mesh(new THREE.SphereGeometry(1,40,28),daughterMaterial);daughterLeft.scale.set(.88,.82,.76);daughterLeft.position.set(-.82,0,0);daughterLeft.visible=false;cell.add(daughterLeft);
-const daughterRight=new THREE.Mesh(new THREE.SphereGeometry(1,40,28),daughterMaterial.clone());daughterRight.scale.copy(daughterLeft.scale);daughterRight.position.set(.82,0,0);daughterRight.visible=false;cell.add(daughterRight);
-const nucleusMat=new THREE.MeshPhysicalMaterial({color:0x9f88df,transparent:true,opacity:.43,roughness:.3});
-const nucleus=new THREE.Mesh(new THREE.SphereGeometry(.59,36,28),nucleusMat);cell.add(nucleus);
-const nucleusLeft=new THREE.Mesh(new THREE.SphereGeometry(.35,32,24),nucleusMat.clone());nucleusLeft.visible=false;cell.add(nucleusLeft);
-const nucleusRight=new THREE.Mesh(new THREE.SphereGeometry(.35,32,24),nucleusMat.clone());nucleusRight.visible=false;cell.add(nucleusRight);
-const chroms=[];
-for(let i=0;i<8;i++){const grp=new THREE.Group(),mat=new THREE.MeshStandardMaterial({color:i%2?0x77dce5:0xc5a7f3,emissive:i%2?0x164b58:0x35214e,emissiveIntensity:.45,roughness:.34});const rodGeo=new THREE.CapsuleGeometry(.055,.28,4,8);const one=new THREE.Mesh(rodGeo,mat),two=new THREE.Mesh(rodGeo,mat);one.rotation.z=-.36;two.rotation.z=.36;one.position.x=-.06;two.position.x=.06;grp.add(one,two);cell.add(grp);chroms.push(grp)}
-const poleMat=new THREE.MeshStandardMaterial({color:0xe7c47e,emissive:0x6f4d1c,emissiveIntensity:.35});
-const poles=[];for(const x of [-1.03,1.03]){const p=new THREE.Mesh(new THREE.SphereGeometry(.09,16,12),poleMat);p.position.set(x,0,0);cell.add(p);poles.push(p)}
-const spindleMat=new THREE.LineBasicMaterial({color:0x70d7e3,transparent:true,opacity:.45});const spindleGroup=new THREE.Group();cell.add(spindleGroup);
-for(let i=0;i<8;i++){const geom=new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(-1.03,0,0),new THREE.Vector3(0,0,0)]);spindleGroup.add(new THREE.Line(geom,spindleMat))}
-let controls=null;if(OrbitControls){controls=new OrbitControls(camera,canvas);controls.enableDamping=true;controls.minDistance=3.5;controls.maxDistance=8}
-let disposed=false;
-const resize=()=>{if(disposed)return;const w=canvas.parentElement.clientWidth,h=canvas.parentElement.clientHeight;if(w<1||h<1)return;camera.aspect=w/h;camera.updateProjectionMatrix();renderer.setSize(w,h,false)};
-const observer=window.ResizeObserver?new ResizeObserver(resize):null;if(observer)observer.observe(canvas.parentElement);
-threeState={THREE,renderer,scene,camera,controls,cell,membrane,wire,daughterLeft,daughterRight,nucleus,nucleusLeft,nucleusRight,chroms,poles,spindleGroup,disposed,observer,resize};
-updateThreeStage();$('#simCanvas').style.display='none';canvas.style.display='block';
-function animate(){if(!threeState||threeState.disposed)return;threeState.raf=requestAnimationFrame(animate);if(playing)cell.rotation.y+=.0018;if(controls)controls.update();renderer.render(scene,camera)}animate();
+if(!active||active.type!==type)return;
+const renderer=new THREE.WebGLRenderer({canvas,alpha:true,antialias:true,powerPreference:'low-power'});
+renderer.setPixelRatio(Math.min(devicePixelRatio||1,1.5));
+renderer.outputColorSpace=THREE.SRGBColorSpace;
+renderer.toneMapping=THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure=1.05;
+renderer.shadowMap.enabled=true;
+renderer.shadowMap.type=THREE.PCFSoftShadowMap;
+const scene=new THREE.Scene();
+scene.background=new THREE.Color(type==='orbit3d'?0x030711:0x0b1523);
+const camera=new THREE.PerspectiveCamera(38,1,.1,1200);
+camera.position.set(0,1.3,6);
+const hemi=new THREE.HemisphereLight(0xb8d9f5,0x17202a, type==='orbit3d'?.65:1.0);
+scene.add(hemi);
+const key=new THREE.DirectionalLight(0xffefd6,type==='orbit3d'?2.2:2.6);
+key.position.set(4,7,6);key.castShadow=true;key.shadow.mapSize.set(1024,1024);
+scene.add(key);
+const fill=new THREE.PointLight(0x83caff,type==='orbit3d'?15:18,28);
+fill.position.set(-4,1,-3);scene.add(fill);
+const loader=new THREE.TextureLoader();
+loader.setCrossOrigin('anonymous');
+const state={THREE,renderer,scene,camera,cell:null,membrane:null,wire:null,daughterLeft:null,daughterRight:null,nucleus:null,nucleusLeft:null,nucleusRight:null,chroms:[],poles:[],spindleGroup:null,bioParts:null,controls:null,observer:null,raf:0,disposed:false,update:()=>{},reset:()=>{},onParamsChange:()=>{}};
+
+function noiseTexture(base,spots){
+ const c=document.createElement('canvas');c.width=256;c.height=128;
+ const x=c.getContext('2d');x.fillStyle=base;x.fillRect(0,0,c.width,c.height);
+ for(let i=0;i<spots;i++){const px=Math.random()*256,py=Math.random()*128,r=1+Math.random()*8;x.fillStyle='rgba(255,255,255,'+(Math.random()*.12)+')';x.beginPath();x.arc(px,py,r,0,Math.PI*2);x.fill();x.fillStyle='rgba(0,0,0,'+(Math.random()*.12)+')';x.beginPath();x.arc((px+17)%256,(py+11)%128,r*.8,0,Math.PI*2);x.fill()}
+ const t=new THREE.CanvasTexture(c);t.wrapS=t.wrapT=THREE.RepeatWrapping;t.colorSpace=THREE.SRGBColorSpace;return t;
 }
-function updateThreeStage(){if(!threeState)return;const s=stage,o=threeState;o.membrane.visible=s!==5;o.wire.visible=s!==5;o.daughterLeft.visible=s===5;o.daughterRight.visible=s===5;o.nucleus.visible=s===0||s===1||s===2;o.nucleus.scale.setScalar(s===1?.78:1);o.nucleusLeft.visible=s===4||s===5;o.nucleusRight.visible=s===4||s===5;o.nucleusLeft.position.set(-.54,0,0);o.nucleusRight.position.set(.54,0,0);o.poles.forEach(p=>p.visible=s>=1&&s<=3);o.spindleGroup.visible=s>=1&&s<=3;
-o.chroms.forEach((c,i)=>{const a=i/8*Math.PI*2;let x=Math.cos(a)*.32,y=Math.sin(a)*.26,z=(i%2)*.08;if(s===0){x=Math.cos(a)*.27;y=Math.sin(a)*.25;c.scale.setScalar(.65)}else if(s===2){x=(i-3.5)*.13;y=(i%2)*.06;z=0;c.scale.setScalar(1)}else if(s>=3){const side=i%2===0?-1:1;x=side*(s===3?.48:.54);y=(Math.floor(i/2)-1.5)*.16;z=(i%2)*.06;c.scale.setScalar(.82)}else c.scale.setScalar(1);c.position.set(x,y,z);c.rotation.z=s>=3?(i%2?-.55:.55):a*.12;c.visible=s!==0});
-o.spindleGroup.children.forEach((line,i)=>{const y=(i-3.5)*.12;const side=i%2===0?-1:1;const endX=s>=3?side*.5:0;const geom=new o.THREE.BufferGeometry().setFromPoints([new o.THREE.Vector3(-1.03,0,0),new o.THREE.Vector3(endX,y,0)]);line.geometry.dispose();line.geometry=geom});
-if(s===5){o.cell.scale.set(.62,.72,.72);o.cell.position.x=0;o.nucleusLeft.position.x=-.65;o.nucleusRight.position.x=.65}else{o.cell.scale.set(1,1,1);o.cell.position.x=0}
+function organicTexture(){
+ const c=document.createElement('canvas');c.width=512;c.height=256;
+ const x=c.getContext('2d'),g=x.createLinearGradient(0,0,512,256);
+ g.addColorStop(0,'#274c58');g.addColorStop(.5,'#4d777b');g.addColorStop(1,'#253e51');x.fillStyle=g;x.fillRect(0,0,512,256);
+ for(let i=0;i<1500;i++){const px=Math.random()*512,py=Math.random()*256,r=1+Math.random()*5;x.fillStyle='rgba(196,226,203,'+(Math.random()*.11)+')';x.beginPath();x.ellipse(px,py,r*1.6,r,Math.random()*Math.PI,0,Math.PI*2);x.fill()}
+ const t=new THREE.CanvasTexture(c);t.colorSpace=THREE.SRGBColorSpace;return t;
 }
-function closeThree(){if(!threeState)return;const o=threeState;o.disposed=true;if(o.raf)cancelAnimationFrame(o.raf);if(o.observer)o.observer.disconnect();if(o.controls)o.controls.dispose();o.scene.traverse(obj=>{if(obj.geometry)obj.geometry.dispose();if(obj.material){if(Array.isArray(obj.material))obj.material.forEach(m=>m.dispose());else obj.material.dispose()}});o.renderer.dispose();threeState=null;const canvas=$('#webglCanvas');if(canvas){canvas.style.display='none';canvas.width=0;canvas.height=0}}
+function addCameraControls(target,minDistance,maxDistance){
+ let az=0,pol=1.28,dist=type==='orbit3d'?13:(type==='projectile'?13:6.1),drag=null,lastX=0,lastY=0;
+ const targetVec=target||new THREE.Vector3();
+ const sync=()=>{pol=Math.max(.18,Math.min(Math.PI-.18,pol));dist=Math.max(minDistance,Math.min(maxDistance,dist));camera.position.set(targetVec.x+dist*Math.sin(pol)*Math.sin(az),targetVec.y+dist*Math.cos(pol),targetVec.z+dist*Math.sin(pol)*Math.cos(az));camera.lookAt(targetVec)};
+ const down=e=>{drag={x:e.clientX,y:e.clientY};lastX=e.clientX;lastY=e.clientY;try{canvas.setPointerCapture(e.pointerId)}catch(_){}};
+ const move=e=>{if(!drag)return;const dx=e.clientX-lastX,dy=e.clientY-lastY;lastX=e.clientX;lastY=e.clientY;az-=dx*.006;pol-=dy*.006;sync()};
+ const up=()=>{drag=null};
+ const wheel=e=>{e.preventDefault();dist*=Math.exp(e.deltaY*.001);sync()};
+ canvas.style.touchAction='none';
+ canvas.addEventListener('pointerdown',down);canvas.addEventListener('pointermove',move);canvas.addEventListener('pointerup',up);canvas.addEventListener('pointercancel',up);canvas.addEventListener('wheel',wheel,{passive:false});
+ sync();
+ return {update:()=>{},dispose:()=>{canvas.removeEventListener('pointerdown',down);canvas.removeEventListener('pointermove',move);canvas.removeEventListener('pointerup',up);canvas.removeEventListener('pointercancel',up);canvas.removeEventListener('wheel',wheel)}};
+}
+function fitRenderer(){
+ const w=Math.max(1,canvas.parentElement.clientWidth),h=Math.max(1,canvas.parentElement.clientHeight);
+ camera.aspect=w/h;camera.updateProjectionMatrix();renderer.setSize(w,h,false);
+}
+state.observer=window.ResizeObserver?new ResizeObserver(fitRenderer):null;
+if(state.observer)state.observer.observe(canvas.parentElement);
+fitRenderer();
+
+if(type==='mitosis3d'){
+ camera.position.set(0,1.2,5.8);
+ const cell=new THREE.Group();scene.add(cell);state.cell=cell;
+ const cytoplasm=new THREE.Mesh(new THREE.SphereGeometry(1.34,64,48),new THREE.MeshPhysicalMaterial({color:0x75b9ac,map:organicTexture(),roughness:.42,metalness:0,transmission:.04,clearcoat:.22,clearcoatRoughness:.4}));
+ cytoplasm.scale.set(1.14,.96,.88);cell.add(cytoplasm);
+ const membraneGeo=new THREE.SphereGeometry(1.42,72,52,0,Math.PI*1.62,0,Math.PI);
+ const membrane=new THREE.Mesh(membraneGeo,new THREE.MeshPhysicalMaterial({color:0x8bdde0,transparent:true,opacity:.25,roughness:.17,metalness:0,transmission:.48,thickness:.24,clearcoat:.8,side:THREE.DoubleSide}));
+ membrane.scale.set(1.18,1,.9);membrane.castShadow=true;cell.add(membrane);state.membrane=membrane;
+ const wire=new THREE.Mesh(new THREE.SphereGeometry(1.44,32,24),new THREE.MeshBasicMaterial({color:0x69d9e9,wireframe:true,transparent:true,opacity:0}));
+ wire.scale.copy(membrane.scale);cell.add(wire);state.wire=wire;
+ const bio=new THREE.Group();cell.add(bio);state.bioParts=bio;
+ const nucleusMat=new THREE.MeshPhysicalMaterial({color:0x8069b5,roughness:.32,transparent:true,opacity:.58,clearcoat:.55});
+ const nucleus=new THREE.Mesh(new THREE.SphereGeometry(.58,48,36),nucleusMat);nucleus.scale.set(1.08,1,.92);bio.add(nucleus);state.nucleus=nucleus;
+ const nucleolus=new THREE.Mesh(new THREE.SphereGeometry(.19,32,24),new THREE.MeshPhysicalMaterial({color:0xb48a9f,roughness:.28,clearcoat:.7}));nucleolus.position.set(.13,.04,.16);bio.add(nucleolus);
+ // Mitochondria with folded inner membranes.
+ const mitoMat=new THREE.MeshPhysicalMaterial({color:0xd48a63,roughness:.28,metalness:.04,clearcoat:.65});
+ for(let i=0;i<5;i++){
+  const g=new THREE.Group(),angle=i*2.4,r=.82;
+  g.position.set(Math.cos(angle)*r,Math.sin(angle*.9)*.52,Math.sin(angle)*r*.7);
+  g.rotation.set(.3*i,.5*i,.7*i);
+  const body=new THREE.Mesh(new THREE.CapsuleGeometry(.105,.32,5,18),mitoMat);body.scale.set(1.25,.72,1);g.add(body);
+  const cristaMat=new THREE.MeshStandardMaterial({color:0xf0c09b,roughness:.42});
+  for(let k=0;k<4;k++){const pts=[];for(let q=0;q<=12;q++){const a=q/12*Math.PI*2;pts.push(new THREE.Vector3(Math.cos(a)*(.075+k*.012),-.14+q*.023,Math.sin(a)*(.075+k*.012)))}
+   const curve=new THREE.CatmullRomCurve3(pts);g.add(new THREE.Mesh(new THREE.TubeGeometry(curve,24,.009,5,false),cristaMat))}
+  bio.add(g);
+ }
+ // Golgi stacks.
+ const golgi=new THREE.Group();golgi.position.set(-.75,.42,.22);golgi.rotation.z=-.3;
+ for(let i=0;i<5;i++){const plate=new THREE.Mesh(new THREE.SphereGeometry(1,32,20),new THREE.MeshPhysicalMaterial({color:0xc68da8,roughness:.32,clearcoat:.45}));plate.scale.set(.32,.035,.19);plate.position.y=(i-2)*.09;golgi.add(plate)}
+ bio.add(golgi);
+ // Endoplasmic reticulum as branching folded tubules.
+ const erMat=new THREE.MeshStandardMaterial({color:0x79b9c8,roughness:.4});
+ for(let i=0;i<7;i++){const pts=[];for(let j=0;j<10;j++){const a=(j/9)*Math.PI*1.5+i*.68;pts.push(new THREE.Vector3(Math.cos(a)*(.66+(i%3)*.045),Math.sin(a)*.42,Math.sin(a*1.7)*.34))}
+  bio.add(new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts),36,.018,6,false),erMat))}
+ // Lysosomes and vesicles.
+ const vesMat=new THREE.MeshPhysicalMaterial({color:0xd7ad67,roughness:.27,clearcoat:.7});
+ for(let i=0;i<13;i++){const a=i*2.399,r=.9+(i%3)*.07;const v=new THREE.Mesh(new THREE.SphereGeometry(.055+(i%3)*.012,18,14),vesMat);v.position.set(Math.cos(a)*r,Math.sin(a*1.8)*.65,Math.sin(a)*r*.68);bio.add(v)}
+ // Ribosomes as a single lightweight instanced draw call.
+ const riboGeo=new THREE.SphereGeometry(.018,8,6),riboMat=new THREE.MeshStandardMaterial({color:0xd9c8ad,roughness:.58});
+ const ribosomes=new THREE.InstancedMesh(riboGeo,riboMat,120),dummy=new THREE.Object3D();
+ for(let i=0;i<120;i++){const a=i*2.399,r=.2+(i%7)*.12;dummy.position.set(Math.cos(a)*r,Math.sin(a*1.4)*.6,Math.sin(a)*r);dummy.scale.setScalar(.65+(i%4)*.12);dummy.updateMatrix();ribosomes.setMatrixAt(i,dummy.matrix)}
+ bio.add(ribosomes);
+ const daughterMaterial=new THREE.MeshPhysicalMaterial({color:0x7ecac3,transparent:true,opacity:.23,roughness:.25,transmission:.25,side:THREE.DoubleSide});
+ const daughterLeft=new THREE.Mesh(new THREE.SphereGeometry(1,48,36),daughterMaterial);daughterLeft.scale.set(.68,.82,.7);daughterLeft.position.set(-.72,0,0);daughterLeft.visible=false;cell.add(daughterLeft);state.daughterLeft=daughterLeft;
+ const daughterRight=new THREE.Mesh(new THREE.SphereGeometry(1,48,36),daughterMaterial.clone());daughterRight.scale.copy(daughterLeft.scale);daughterRight.position.set(.72,0,0);daughterRight.visible=false;cell.add(daughterRight);state.daughterRight=daughterRight;
+ const nucleusLeft=new THREE.Mesh(new THREE.SphereGeometry(.34,32,24),nucleusMat.clone());nucleusLeft.visible=false;cell.add(nucleusLeft);state.nucleusLeft=nucleusLeft;
+ const nucleusRight=new THREE.Mesh(new THREE.SphereGeometry(.34,32,24),nucleusMat.clone());nucleusRight.visible=false;cell.add(nucleusRight);state.nucleusRight=nucleusRight;
+ const chromMatA=new THREE.MeshPhysicalMaterial({color:0xbba0d5,roughness:.26,clearcoat:.6});
+ const chromMatB=new THREE.MeshPhysicalMaterial({color:0x8ec6d0,roughness:.26,clearcoat:.6});
+ const chroms=[];
+ for(let i=0;i<8;i++){const grp=new THREE.Group(),mat=i%2?chromMatA:chromMatB,rodGeo=new THREE.CapsuleGeometry(.045,.25,5,12);
+  const one=new THREE.Mesh(rodGeo,mat),two=new THREE.Mesh(rodGeo,mat);one.rotation.z=-.42;two.rotation.z=.42;one.position.x=-.045;two.position.x=.045;grp.add(one,two);cell.add(grp);chroms.push(grp)}
+ state.chroms=chroms;
+ const poleMat=new THREE.MeshPhysicalMaterial({color:0xe7c47e,metalness:.32,roughness:.3});
+ const poles=[];for(const x of [-1.03,1.03]){const p=new THREE.Mesh(new THREE.SphereGeometry(.075,20,16),poleMat);p.position.set(x,0,0);p.visible=false;cell.add(p);poles.push(p)}state.poles=poles;
+ const spindleGroup=new THREE.Group();cell.add(spindleGroup);state.spindleGroup=spindleGroup;
+ const spindleMat=new THREE.LineBasicMaterial({color:0xb3d8dd,transparent:true,opacity:.48});
+ for(let i=0;i<8;i++){const geom=new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(-1.03,0,0),new THREE.Vector3(0,0,0)]);spindleGroup.add(new THREE.Line(geom,spindleMat))}
+ state.controls=addCameraControls(new THREE.Vector3(0,0,0),3.5,9);
+ state.update=()=>{if(playing)cell.rotation.y+=.0009};
+ state.reset=()=>{cell.rotation.set(0,0,0);updateThreeStage()};
+ updateThreeStage();
+}else if(type==='orbit3d'){
+ camera.position.set(0,6,12);
+ const starsGeo=new THREE.BufferGeometry(),starPos=new Float32Array(900*3);
+ for(let i=0;i<900;i++){const a=Math.random()*Math.PI*2,z=Math.random()*2-1,r=45+Math.random()*30,q=Math.sqrt(1-z*z);starPos[i*3]=r*q*Math.cos(a);starPos[i*3+1]=r*z;starPos[i*3+2]=r*q*Math.sin(a)}
+ starsGeo.setAttribute('position',new THREE.BufferAttribute(starPos,3));
+ scene.add(new THREE.Points(starsGeo,new THREE.PointsMaterial({color:0xd8e8ff,size:.075,transparent:true,opacity:.85,sizeAttenuation:true})));
+ const sunTex=(()=>{const c=document.createElement('canvas');c.width=256;c.height=128;const x=c.getContext('2d'),g=x.createLinearGradient(0,0,256,128);g.addColorStop(0,'#a83d17');g.addColorStop(.45,'#f9a43c');g.addColorStop(1,'#fff0a5');x.fillStyle=g;x.fillRect(0,0,256,128);for(let i=0;i<350;i++){x.fillStyle='rgba(255,240,160,'+(Math.random()*.22)+')';x.fillRect(Math.random()*256,Math.random()*128,1+Math.random()*8,1+Math.random()*2)}return new THREE.CanvasTexture(c)})();
+ const sun=new THREE.Mesh(new THREE.SphereGeometry(.9,48,32),new THREE.MeshBasicMaterial({map:sunTex}));sun.position.set(-4.5,0,0);scene.add(sun);
+ const sunGlow=new THREE.Sprite(new THREE.SpriteMaterial({map:(()=>{const c=document.createElement('canvas');c.width=c.height=128;const x=c.getContext('2d'),g=x.createRadialGradient(64,64,2,64,64,64);g.addColorStop(0,'rgba(255,205,105,.8)');g.addColorStop(.35,'rgba(255,133,45,.22)');g.addColorStop(1,'rgba(255,100,30,0)');x.fillStyle=g;x.fillRect(0,0,128,128);return new THREE.CanvasTexture(c)})(),transparent:true,blending:THREE.AdditiveBlending,depthWrite:false}));
+ sunGlow.scale.set(5.5,5.5,1);sun.add(sunGlow);
+ const orbitPoints=[];for(let i=0;i<=160;i++){const a=i/160*Math.PI*2;orbitPoints.push(new THREE.Vector3(Math.cos(a)*params.radius*1.5,0,Math.sin(a)*params.radius*1.5))}
+ const orbit=new THREE.LineLoop(new THREE.BufferGeometry().setFromPoints(orbitPoints),new THREE.LineBasicMaterial({color:0x52718c,transparent:true,opacity:.45}));scene.add(orbit);
+ const earthGeo=new THREE.SphereGeometry(.62,64,48);
+ const earthFallback=noiseTexture('#356b9c',950);
+ let earthMap=earthFallback;
+ try{earthMap=loader.load('https://raw.githubusercontent.com/JiayuanZhu/solar-system-viz/main/textures/2k_earth_daymap.jpg',t=>{t.colorSpace=THREE.SRGBColorSpace;earth.material.map=t;earth.material.needsUpdate=true},()=>{});earthMap.colorSpace=THREE.SRGBColorSpace}catch(_){}
+ const earth=new THREE.Mesh(earthGeo,new THREE.MeshStandardMaterial({color:0xffffff,map:earthMap,roughness:.82,metalness:0}));scene.add(earth);
+ const cloudsTex=loader.load('https://raw.githubusercontent.com/JiayuanZhu/solar-system-viz/main/textures/2k_earth_clouds.jpg',t=>{t.colorSpace=THREE.SRGBColorSpace;clouds.material.map=t;clouds.material.needsUpdate=true},()=>{});
+ const clouds=new THREE.Mesh(new THREE.SphereGeometry(.634,48,36),new THREE.MeshStandardMaterial({map:cloudsTex,transparent:true,opacity:.17,depthWrite:false,roughness:1}));scene.add(clouds);
+ const atmosphere=new THREE.Mesh(new THREE.SphereGeometry(.66,48,36),new THREE.MeshBasicMaterial({color:0x4b9fff,transparent:true,opacity:.10,side:THREE.BackSide,depthWrite:false}));scene.add(atmosphere);
+ const moon=new THREE.Mesh(new THREE.SphereGeometry(.16,32,24),new THREE.MeshStandardMaterial({color:0xb5b8bd,roughness:1,map:noiseTexture('#888b90',500)}));scene.add(moon);
+ const planetLight=new THREE.PointLight(0xffd39a,100,50);planetLight.position.copy(sun.position);scene.add(planetLight);
+ const updateOrbit=()=>{const a=elapsed*params.speed*.28,r=params.radius*1.5;const x=Math.cos(a)*r,z=Math.sin(a)*r;earth.position.set(x,0,z);earth.rotation.y=elapsed*.22;clouds.position.copy(earth.position);clouds.rotation.y=elapsed*.27;atmosphere.position.copy(earth.position);moon.position.set(x+Math.cos(a*3)*.96,.04,z+Math.sin(a*3)*.96)};
+ state.controls=addCameraControls(new THREE.Vector3(0,0,0),5,35);
+ state.update=updateOrbit;state.reset=updateOrbit;state.onParamsChange=()=>{
+  const pts=[];for(let i=0;i<=160;i++){const a=i/160*Math.PI*2;pts.push(new THREE.Vector3(Math.cos(a)*params.radius*1.5,0,Math.sin(a)*params.radius*1.5))}
+  orbit.geometry.dispose();orbit.geometry=new THREE.BufferGeometry().setFromPoints(pts);elapsed=0;updateOrbit();
+ };
+ updateOrbit();
+}else if(type==='projectile'){
+ camera.position.set(0,6,12);
+ const groundMat=new THREE.MeshStandardMaterial({color:0x243746,roughness:.92,metalness:.02});
+ const floor=new THREE.Mesh(new THREE.PlaneGeometry(100,100),groundMat);floor.rotation.x=-Math.PI/2;floor.position.y=-.08;floor.receiveShadow=true;scene.add(floor);
+ const grid=new THREE.GridHelper(80,40,0x58718a,0x263b4c);grid.position.y=-.065;scene.add(grid);
+ const projectGroup=new THREE.Group();scene.add(projectGroup);
+ const ballMap=noiseTexture('#8b949a',1300);
+ const ballMat=new THREE.MeshPhysicalMaterial({color:0xc6d0d4,map:ballMap,bumpMap:ballMap,bumpScale:.018,metalness:.62,roughness:.27,clearcoat:.9,clearcoatRoughness:.2});
+ const ball=new THREE.Mesh(new THREE.SphereGeometry(.19,48,36),ballMat);ball.castShadow=true;projectGroup.add(ball);
+ const launchBase=new THREE.Mesh(new THREE.CylinderGeometry(.32,.42,.13,32),new THREE.MeshStandardMaterial({color:0x71818b,metalness:.55,roughness:.32}));launchBase.position.set(0,0,0);launchBase.castShadow=true;projectGroup.add(launchBase);
+ const platform=new THREE.Mesh(new THREE.BoxGeometry(1.0,.12,.9),new THREE.MeshStandardMaterial({color:0x344b59,roughness:.52,metalness:.28}));platform.position.set(0,-.02,0);platform.castShadow=true;projectGroup.add(platform);
+ const dashMat=new THREE.LineDashedMaterial({color:0x8bb6ce,dashSize:.12,gapSize:.08,transparent:true,opacity:.62});
+ let pathLine=null,traceLine=null,traceGeo=null,trajectoryScale=1,startX=0,flightTime=1;
+ const rebuild=()=>{
+  while(projectGroup.children.length){const o=projectGroup.children.pop();projectGroup.remove(o);if(o.geometry)o.geometry.dispose();if(o.material&&!Array.isArray(o.material)){if(o.material!==ballMat&&o.material.map!==ballMap)o.material.dispose()}}
+  const d=projectileData();flightTime=d.time;trajectoryScale=8/Math.max(d.range,d.height*2,10);startX=-d.range*trajectoryScale/2;
+  const pts=[];for(let i=0;i<=120;i++){const t=d.time*i/120;pts.push(new THREE.Vector3(startX+d.vx*t*trajectoryScale,Math.max(0,d.vy*t-.5*params.gravity*t*t)*trajectoryScale+.03,0))}
+  pathLine=new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts),dashMat);pathLine.computeLineDistances();projectGroup.add(pathLine);
+  traceGeo=new THREE.BufferGeometry();const arr=new Float32Array(121*3);traceGeo.setAttribute('position',new THREE.BufferAttribute(arr,3).setUsage(THREE.DynamicDrawUsage));traceGeo.setDrawRange(0,0);
+  traceLine=new THREE.Line(traceGeo,new THREE.LineBasicMaterial({color:0xe8c37b,linewidth:2}));projectGroup.add(traceLine);
+  launchBase.position.set(startX,-.02,0);platform.position.set(startX,-.02,0);ball.position.set(startX,.22,0);
+  camera.position.set(0,Math.max(5,d.height*trajectoryScale*1.5+3),Math.max(9,d.range*trajectoryScale*1.4+5));camera.lookAt(0,Math.max(.7,d.height*trajectoryScale*.35),0);
+  if(state.controls)state.controls.dispose();state.controls=addCameraControls(new THREE.Vector3(0,Math.max(.7,d.height*trajectoryScale*.35),0),4,35);
+ };
+ const updateProjectile=()=>{
+  const d=projectileData(),t=Math.max(0,Math.min(elapsed,d.time));
+  const x=startX+d.vx*t*trajectoryScale,y=Math.max(0,d.vy*t-.5*params.gravity*t*t)*trajectoryScale;
+  ball.position.set(x,y+.19,0);
+  const count=Math.max(1,Math.min(120,Math.floor(t/d.time*120)));
+  const attr=traceGeo.attributes.position;
+  for(let i=0;i<=count;i++){const tt=d.time*i/120,xx=startX+d.vx*tt*trajectoryScale,yy=Math.max(0,d.vy*tt-.5*params.gravity*tt*tt)*trajectoryScale+.03;attr.setXYZ(i,xx,yy,0)}
+  attr.needsUpdate=true;traceGeo.setDrawRange(0,count+1);
+ };
+ rebuild();state.update=updateProjectile;state.reset=updateProjectile;state.onParamsChange=()=>{elapsed=0;playing=true;rebuild();updateProjectile()};
+}
+state.controls=state.controls||addCameraControls(new THREE.Vector3(),3,12);
+state.update=state.update||(()=>{});
+state.reset=state.reset||(()=>{});
+state.onParamsChange=state.onParamsChange||(()=>{});
+threeState=state;
+updateThreeStage();
+$('#simCanvas').style.display='none';canvas.style.display='block';
+function animate(){if(!threeState||threeState.disposed)return;state.raf=requestAnimationFrame(animate);if(state.controls)state.controls.update();if(type==='mitosis3d'&&playing)state.cell.rotation.y+=.0009;renderer.render(scene,camera)}
+animate();
+}
+function updateThreeStage(){
+ if(!threeState||!threeState.cell)return;
+ const s=stage,o=threeState;
+ o.membrane.visible=s!==5;o.daughterLeft.visible=s===5;o.daughterRight.visible=s===5;
+ o.nucleus.visible=s<=2;o.nucleus.scale.setScalar(s===1?.86:1);
+ o.nucleusLeft.visible=s>=4;o.nucleusRight.visible=s>=4;
+ o.nucleusLeft.position.set(-.54,0,0);o.nucleusRight.position.set(.54,0,0);
+ o.bioParts.visible=s<=1||s===5;
+ o.poles.forEach(p=>p.visible=s>=1&&s<=3);o.spindleGroup.visible=s>=1&&s<=3;
+ o.chroms.forEach((c,i)=>{const a=i/8*Math.PI*2;let x=Math.cos(a)*.32,y=Math.sin(a)*.26,z=(i%2)*.08;
+  if(s===0){x=Math.cos(a)*.27;y=Math.sin(a)*.25;c.scale.setScalar(.65)}
+  else if(s===2){x=(i-3.5)*.13;y=(i%2)*.06;z=0;c.scale.setScalar(1)}
+  else if(s>=3){const side=i%2===0?-1:1;x=side*(s===3?.48:.54);y=(Math.floor(i/2)-1.5)*.16;z=(i%2)*.06;c.scale.setScalar(.82)}
+  else c.scale.setScalar(1);
+  c.position.set(x,y,z);c.rotation.z=s>=3?(i%2?-.55:.55):a*.12;c.visible=s!==0
+ });
+ o.spindleGroup.children.forEach((line,i)=>{const y=(i-3.5)*.12,side=i%2===0?-1:1,endX=s>=3?side*.5:0;const geom=new o.THREE.BufferGeometry().setFromPoints([new o.THREE.Vector3(-1.03,0,0),new o.THREE.Vector3(endX,y,0)]);line.geometry.dispose();line.geometry=geom});
+ if(s===5){o.cell.scale.set(.72,.78,.72);o.cell.position.x=0;o.nucleusLeft.position.x=-.65;o.nucleusRight.position.x=.65}
+ else{o.cell.scale.set(1,1,1);o.cell.position.x=0}
+}
+function closeThree(){
+ if(!threeState)return;
+ const o=threeState;o.disposed=true;if(o.raf)cancelAnimationFrame(o.raf);
+ if(o.observer)o.observer.disconnect();if(o.controls)o.controls.dispose();
+ o.scene.traverse(obj=>{if(obj.geometry)obj.geometry.dispose();if(obj.material){const mats=Array.isArray(obj.material)?obj.material:[obj.material];mats.forEach(m=>{if(m.map)m.map.dispose();if(m.bumpMap&&m.bumpMap!==m.map)m.bumpMap.dispose();m.dispose()})}});
+ o.renderer.dispose();try{o.renderer.forceContextLoss()}catch(_){}
+ threeState=null;const canvas=$('#webglCanvas');if(canvas){canvas.style.display='none';canvas.width=0;canvas.height=0}
+}
 const aiPanel=$('#aiPanel'),aiMessages=$('#aiMessages'),aiInput=$('#aiInput'),aiSend=$('#aiSend'),aiStatus=$('#aiStatus');
 let aiHistory=[],aiTurnCount=0,aiBusy=false;
 function aiMessage(role,text){const node=document.createElement('div');node.className='ai-msg '+role;node.textContent=text;aiMessages.appendChild(node);aiMessages.scrollTop=aiMessages.scrollHeight;return node}
