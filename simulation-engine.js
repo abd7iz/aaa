@@ -51,7 +51,7 @@
     if (!raw || typeof raw !== 'object' || raw.schema !== 'mukhtabar-sim-v1') {
       throw new Error('صيغة التجربة التي أنشأها الذكاء الاصطناعي غير معروفة.');
     }
-    var engine = ['tokamak', 'wave', 'pendulum', 'interference', 'induction', 'diffraction', 'dipole', 'polarization', 'photoelectric', 'decay', 'bohr', 'blackbody', 'idealgas', 'rlc', 'doppler', 'standingwave', 'collision', 'titration', 'electrostatic', 'venturi', 'scene'].indexOf(raw.engine) >= 0 ? raw.engine : null;
+    var engine = ['tokamak', 'wave', 'pendulum', 'interference', 'induction', 'diffraction', 'dipole', 'polarization', 'photoelectric', 'decay', 'bohr', 'blackbody', 'idealgas', 'rlc', 'doppler', 'standingwave', 'collision', 'titration', 'electrostatic', 'venturi', 'buoyancy', 'scene'].indexOf(raw.engine) >= 0 ? raw.engine : null;
     if (!engine) throw new Error('نوع المحاكاة غير مدعوم في محرك المختبر الحالي.');
     var field = FIELDS.indexOf(raw.field) >= 0 ? raw.field : 'physics';
     var used = {}, controls = [];
@@ -163,6 +163,11 @@
       ensure(defaultControl('throat_radius', 'نصف قطر الحلق', .06, .12, .005, .06, 'm'));
       ensure(defaultControl('density', 'كثافة السائل', 850, 1100, 10, 1000, 'kg/m³'));
       ensure(defaultControl('inlet_pressure', 'ضغط الدخول', 120, 300, 5, 150, 'kPa'));
+    } else if (engine === 'buoyancy') {
+      ensure(defaultControl('object_density', 'كثافة الجسم', 200, 1500, 10, 600, 'kg/m³'));
+      ensure(defaultControl('fluid_density', 'كثافة السائل', 700, 1200, 10, 1000, 'kg/m³'));
+      ensure(defaultControl('volume', 'حجم الجسم', .001, .02, .001, .01, 'm³'));
+      ensure(defaultControl('gravity', 'تسارع الجاذبية', 1, 20, .1, 9.81, 'm/s²'));
     }
     if (!controls.length) controls.push(defaultControl('rate', 'معدل الحركة', .1, 3, .05, 1, '×'));
     if (controls.length > 7) controls = controls.slice(0, 7);
@@ -490,6 +495,26 @@
     };
   };
 
+  ENGINE.archimedesState = function (objectDensity, fluidDensity, volumeM3, gravity) {
+    var rhoObject = Math.max(0, finite(objectDensity, 600));
+    var rhoFluid = Math.max(.000001, finite(fluidDensity, 1000));
+    var volume = Math.max(0, finite(volumeM3, .01));
+    var g = Math.max(0, finite(gravity, 9.81));
+    var weight = rhoObject * volume * g;
+    var maxBuoyancy = rhoFluid * volume * g;
+    var fraction = clamp(rhoObject / rhoFluid, 0, 1);
+    var state = rhoObject < rhoFluid ? 'floating' : rhoObject > rhoFluid ? 'sinking' : 'neutral';
+    var buoyancy = state === 'sinking' ? maxBuoyancy : weight;
+    return {
+      weight: weight,
+      buoyantForce: buoyancy,
+      maximumBuoyantForce: maxBuoyancy,
+      netDownwardForce: Math.max(0, weight - maxBuoyancy),
+      submergedFraction: fraction,
+      state: state
+    };
+  };
+
   function paramsFrom(def, state) {
     var out = {};
     def.params.forEach(function (p) {
@@ -509,7 +534,7 @@
       id: 'generated',
       field: spec.field === 'biology' ? 'bio' : 'phy',
       fieldLabel: ({ physics: 'الفيزياء', biology: 'الأحياء', chemistry: 'الكيمياء', astronomy: 'الفلك', mathematics: 'الرياضيات' })[spec.field],
-      icon: spec.engine === 'tokamak' ? 'atom' : spec.engine === 'wave' ? 'activity' : spec.engine === 'pendulum' ? 'clock' : spec.engine === 'interference' ? 'waves' : spec.engine === 'induction' ? 'zap' : spec.engine === 'diffraction' ? 'scan-eye' : spec.engine === 'dipole' ? 'magnet' : spec.engine === 'polarization' ? 'sun' : spec.engine === 'photoelectric' ? 'zap' : spec.engine === 'decay' ? 'atom' : spec.engine === 'bohr' ? 'orbit' : spec.engine === 'blackbody' ? 'thermometer-sun' : spec.engine === 'idealgas' ? 'gauge' : spec.engine === 'rlc' ? 'activity' : spec.engine === 'doppler' ? 'audio-lines' : spec.engine === 'standingwave' ? 'waves' : spec.engine === 'collision' ? 'arrow-left-right' : spec.engine === 'titration' ? 'flask-conical' : spec.engine === 'electrostatic' ? 'zap' : spec.engine === 'venturi' ? 'waves' : 'shapes',
+      icon: spec.engine === 'tokamak' ? 'atom' : spec.engine === 'wave' ? 'activity' : spec.engine === 'pendulum' ? 'clock' : spec.engine === 'interference' ? 'waves' : spec.engine === 'induction' ? 'zap' : spec.engine === 'diffraction' ? 'scan-eye' : spec.engine === 'dipole' ? 'magnet' : spec.engine === 'polarization' ? 'sun' : spec.engine === 'photoelectric' ? 'zap' : spec.engine === 'decay' ? 'atom' : spec.engine === 'bohr' ? 'orbit' : spec.engine === 'blackbody' ? 'thermometer-sun' : spec.engine === 'idealgas' ? 'gauge' : spec.engine === 'rlc' ? 'activity' : spec.engine === 'doppler' ? 'audio-lines' : spec.engine === 'standingwave' ? 'waves' : spec.engine === 'collision' ? 'arrow-left-right' : spec.engine === 'titration' ? 'flask-conical' : spec.engine === 'electrostatic' ? 'zap' : spec.engine === 'venturi' ? 'waves' : spec.engine === 'buoyancy' ? 'anchor' : 'shapes',
       title: spec.title,
       short: spec.summary,
       spec: spec,
@@ -728,6 +753,19 @@
           rows.push(['ضغط الحلق', flow.throatPressureKPa.toFixed(2) + ' kPa']);
           rows.push(['انخفاض الضغط', flow.pressureDropKPa.toFixed(2) + ' kPa']);
           rows.push(['التدفق الكتلي', flow.massFlowKgS.toFixed(4) + ' kg/s']);
+        }
+        if (spec.engine === 'buoyancy') {
+          var buoyancy = ENGINE.archimedesState(
+            param(prm, 'object_density', 600),
+            param(prm, 'fluid_density', 1000),
+            param(prm, 'volume', .01),
+            param(prm, 'gravity', 9.81)
+          );
+          rows.push(['وزن الجسم', buoyancy.weight.toFixed(2) + ' N']);
+          rows.push(['قوة الطفو', buoyancy.buoyantForce.toFixed(2) + ' N']);
+          rows.push(['نسبة الحجم المغمور', (buoyancy.submergedFraction * 100).toFixed(1) + '%']);
+          rows.push(['القوة المحصلة للأسفل', buoyancy.netDownwardForce.toFixed(2) + ' N']);
+          rows.push(['الحالة', buoyancy.state === 'floating' ? 'يطفو' : buoyancy.state === 'sinking' ? 'يغرق' : 'اتزان متعادل']);
         }
         return rows;
       };
@@ -3401,6 +3439,81 @@
         updateModel(0);
         st.sph.r = 10.4;
         st.place();
+      } else if (spec.engine === 'buoyancy') {
+        // Archimedes' principle: a floating/sinking block in a transparent water tank.
+        var tankMaterial = new T.MeshPhongMaterial({
+          color: 0x80b3c8, transparent: true, opacity: .13,
+          side: T.DoubleSide, shininess: 100, depthWrite: false
+        });
+        var tank = new T.Mesh(new T.BoxGeometry(3.8, 2.8, 2.0), tankMaterial);
+        tank.position.y = -.05;
+        S.add(tank);
+
+        var water = new T.Mesh(new T.BoxGeometry(3.62, 1.45, 1.82),
+          new T.MeshPhongMaterial({ color: 0x168bc4, transparent: true, opacity: .28, side: T.DoubleSide, depthWrite: false }));
+        water.position.y = -.70;
+        S.add(water);
+        var waterSurface = new T.Mesh(new T.PlaneGeometry(3.6, 1.8),
+          new T.MeshPhongMaterial({ color: 0x53d6ff, transparent: true, opacity: .22, side: T.DoubleSide, depthWrite: false }));
+        waterSurface.rotation.x = -Math.PI / 2;
+        waterSurface.position.y = .025;
+        S.add(waterSurface);
+
+        var objectMaterial = new T.MeshPhongMaterial({
+          color: 0xc59a62, emissive: 0x241609, specular: 0xf4d6a8, shininess: 75
+        });
+        var floatingObject = new T.Mesh(new T.BoxGeometry(.72, .72, .72), objectMaterial);
+        S.add(floatingObject);
+
+        var weightArrow = new T.ArrowHelper(new T.Vector3(0, -1, 0), new T.Vector3(), .8, 0xff9a6c, .18, .12);
+        var buoyancyArrow = new T.ArrowHelper(new T.Vector3(0, 1, 0), new T.Vector3(), .8, 0x61dfff, .18, .12);
+        S.add(weightArrow); S.add(buoyancyArrow);
+
+        var rippleRings = [];
+        for (var ri = 0; ri < 3; ri++) {
+          var ripple = new T.Mesh(new T.TorusGeometry(.55 + ri * .22, .012, 6, 48),
+            new T.MeshBasicMaterial({ color: 0x74e4ff, transparent: true, opacity: .35, depthWrite: false }));
+          ripple.rotation.x = Math.PI / 2;
+          ripple.position.y = .03 + ri * .003;
+          S.add(ripple);
+          rippleRings.push(ripple);
+        }
+
+        updateModel = function () {
+          var rhoObject = param(prm, 'object_density', 600);
+          var rhoFluid = param(prm, 'fluid_density', 1000);
+          var volume = param(prm, 'volume', .01);
+          var gravity = param(prm, 'gravity', 9.81);
+          var state = ENGINE.archimedesState(rhoObject, rhoFluid, volume, gravity);
+          var size = .72 * Math.pow(volume / .01, 1 / 3);
+          floatingObject.scale.setScalar(size / .72);
+          var waterY = .025;
+          var centerY;
+          if (state.state === 'floating' || state.state === 'neutral') {
+            centerY = waterY + (.5 - state.submergedFraction) * size;
+          } else {
+            centerY = -1.34 + size / 2;
+          }
+          floatingObject.position.set(0, centerY, .08);
+          objectMaterial.color.set(rhoObject < rhoFluid ? 0xc59a62 : rhoObject > rhoFluid ? 0x8797a4 : 0x91b9be);
+          weightArrow.position.set(.62, centerY + size * .4, .15);
+          buoyancyArrow.position.set(-.62, centerY - size * .4, .15);
+          var weightLength = .35 + Math.min(1.25, state.weight / 180);
+          var buoyancyLength = .35 + Math.min(1.25, state.buoyantForce / 180);
+          weightArrow.setLength(weightLength, .17, .11);
+          buoyancyArrow.setLength(buoyancyLength, .17, .11);
+          weightArrow.visible = state.weight > .001;
+          buoyancyArrow.visible = state.buoyantForce > .001;
+          rippleRings.forEach(function (ring, index) {
+            var phase = (time * .42 + index / rippleRings.length) % 1;
+            ring.scale.setScalar(.72 + phase * .6);
+            ring.material.opacity = .32 * (1 - phase);
+          });
+        };
+        resetModel = function () { time = 0; updateModel(0); };
+        updateModel(0);
+        st.sph.r = 9.8;
+        st.place();
       } else {
         var meshes = [];
         spec.objects.forEach(function (o) {
@@ -3487,6 +3600,7 @@
           if (spec.engine === 'titration') return 'يعرض النموذج معايرة حمض قوي أحادي البروتون بقاعدة قوية أحادية الهيدروكسيد عند 25°C. قبل التكافؤ نحسب فائض +H، وبعده فائض −OH، وعند التكافؤ المثالي تكون pH=7. يتغير لون الدليل مع pH ويُرسم منحنى pH مقابل حجم القاعدة المضافة. لا يمثل هذا النموذج الأحماض الضعيفة أو الاتزانات أو النشاط الكيميائي.';
           if (spec.engine === 'electrostatic') return 'يعتمد النموذج قانون كولوم ومبدأ التراكب: المجال والجهد عند نقطة يساويان مجموع مساهمات الشحنتين. تتجه خطوط المجال من الشحنة الموجبة إلى السالبة، ويعرض المجس مركبتي المجال والجهد الكهربائي عند موضع تختاره. نستخدم شحنتين نقطيتين في فراغ ونقرب المسافة القريبة جداً لتجنب التفرد العددي.';
           if (spec.engine === 'venturi') return 'يعرض أنبوب فنتوري تدفق سائل غير قابل للانضغاط في أنبوب أفقي. من معادلة الاستمرارية A1v1=A2v2 تزداد السرعة في المقطع الضيق، ومن برنولي P+½ρv²=ثابت ينخفض الضغط الساكن هناك. يفترض النموذج جرياناً مستقراً ومثالياً مع إهمال اللزوجة والفقد والاضطراب.';
+          if (spec.engine === 'buoyancy') return 'يطبق النموذج مبدأ أرخميدس: قوة الطفو تساوي وزن السائل المزاح Fb=ρfluid g Vsub. إذا كانت كثافة الجسم أقل من كثافة السائل يطفو ويكون الجزء المغمور بنسبة ρobject/ρfluid؛ وإذا زادت كثافته يغرق ويكون مغموراً بالكامل. يهمل النموذج تأثيرات السطح واللزوجة وشكل الجسم غير المنتظم.';
           return spec.assumptions || spec.principle || spec.summary;
         },
         dispose: function () { st.dispose(); }
