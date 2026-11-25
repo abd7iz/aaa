@@ -51,7 +51,7 @@
     if (!raw || typeof raw !== 'object' || raw.schema !== 'mukhtabar-sim-v1') {
       throw new Error('صيغة التجربة التي أنشأها الذكاء الاصطناعي غير معروفة.');
     }
-    var engine = ['tokamak', 'wave', 'pendulum', 'interference', 'induction', 'diffraction', 'dipole', 'polarization', 'photoelectric', 'decay', 'bohr', 'blackbody', 'idealgas', 'rlc', 'doppler', 'standingwave', 'scene'].indexOf(raw.engine) >= 0 ? raw.engine : null;
+    var engine = ['tokamak', 'wave', 'pendulum', 'interference', 'induction', 'diffraction', 'dipole', 'polarization', 'photoelectric', 'decay', 'bohr', 'blackbody', 'idealgas', 'rlc', 'doppler', 'standingwave', 'collision', 'scene'].indexOf(raw.engine) >= 0 ? raw.engine : null;
     if (!engine) throw new Error('نوع المحاكاة غير مدعوم في محرك المختبر الحالي.');
     var field = FIELDS.indexOf(raw.field) >= 0 ? raw.field : 'physics';
     var used = {}, controls = [];
@@ -140,6 +140,12 @@
       ensure(defaultControl('harmonic', 'رقم التوافقية n', 1, 5, 1, 2, ''));
       ensure(defaultControl('drive_frequency', 'تردد الإثارة', 20, 400, 1, 100, 'Hz'));
       ensure(defaultControl('amplitude', 'السعة الاسمية', .1, .6, .01, .25, 'm'));
+    } else if (engine === 'collision') {
+      ensure(defaultControl('mass1', 'كتلة الكرة الأولى', .5, 5, .1, 2, 'kg'));
+      ensure(defaultControl('mass2', 'كتلة الكرة الثانية', .5, 5, .1, 3, 'kg'));
+      ensure(defaultControl('speed1', 'سرعة الكرة الأولى', .5, 5, .1, 3, 'm/s'));
+      ensure(defaultControl('speed2', 'سرعة الكرة الثانية', .5, 5, .1, 2, 'm/s'));
+      ensure(defaultControl('restitution', 'معامل الارتداد e', 0, 1, .05, 1, ''));
     }
     if (!controls.length) controls.push(defaultControl('rate', 'معدل الحركة', .1, 3, .05, 1, '×'));
     if (controls.length > 7) controls = controls.slice(0, 7);
@@ -368,6 +374,33 @@
     };
   };
 
+  ENGINE.collisionOutcome = function (mass1, mass2, velocity1, velocity2, restitution) {
+    var m1 = Math.max(.0001, finite(mass1, 1));
+    var m2 = Math.max(.0001, finite(mass2, 1));
+    var u1 = finite(velocity1, 1);
+    var u2 = finite(velocity2, -1);
+    var e = clamp(finite(restitution, 1), 0, 1);
+    var denominator = m1 + m2;
+    var v1 = ((m1 - e * m2) * u1 + (1 + e) * m2 * u2) / denominator;
+    var v2 = ((m2 - e * m1) * u2 + (1 + e) * m1 * u1) / denominator;
+    var momentumBefore = m1 * u1 + m2 * u2;
+    var momentumAfter = m1 * v1 + m2 * v2;
+    var energyBefore = .5 * m1 * u1 * u1 + .5 * m2 * u2 * u2;
+    var energyAfter = .5 * m1 * v1 * v1 + .5 * m2 * v2 * v2;
+    return {
+      velocity1Before: u1,
+      velocity2Before: u2,
+      velocity1After: v1,
+      velocity2After: v2,
+      momentumBefore: momentumBefore,
+      momentumAfter: momentumAfter,
+      kineticEnergyBefore: energyBefore,
+      kineticEnergyAfter: energyAfter,
+      kineticEnergyLoss: energyBefore - energyAfter,
+      restitution: e
+    };
+  };
+
   function paramsFrom(def, state) {
     var out = {};
     def.params.forEach(function (p) {
@@ -387,7 +420,7 @@
       id: 'generated',
       field: spec.field === 'biology' ? 'bio' : 'phy',
       fieldLabel: ({ physics: 'الفيزياء', biology: 'الأحياء', chemistry: 'الكيمياء', astronomy: 'الفلك', mathematics: 'الرياضيات' })[spec.field],
-      icon: spec.engine === 'tokamak' ? 'atom' : spec.engine === 'wave' ? 'activity' : spec.engine === 'pendulum' ? 'clock' : spec.engine === 'interference' ? 'waves' : spec.engine === 'induction' ? 'zap' : spec.engine === 'diffraction' ? 'scan-eye' : spec.engine === 'dipole' ? 'magnet' : spec.engine === 'polarization' ? 'sun' : spec.engine === 'photoelectric' ? 'zap' : spec.engine === 'decay' ? 'atom' : spec.engine === 'bohr' ? 'orbit' : spec.engine === 'blackbody' ? 'thermometer-sun' : spec.engine === 'idealgas' ? 'gauge' : spec.engine === 'rlc' ? 'activity' : spec.engine === 'doppler' ? 'audio-lines' : spec.engine === 'standingwave' ? 'waves' : 'shapes',
+      icon: spec.engine === 'tokamak' ? 'atom' : spec.engine === 'wave' ? 'activity' : spec.engine === 'pendulum' ? 'clock' : spec.engine === 'interference' ? 'waves' : spec.engine === 'induction' ? 'zap' : spec.engine === 'diffraction' ? 'scan-eye' : spec.engine === 'dipole' ? 'magnet' : spec.engine === 'polarization' ? 'sun' : spec.engine === 'photoelectric' ? 'zap' : spec.engine === 'decay' ? 'atom' : spec.engine === 'bohr' ? 'orbit' : spec.engine === 'blackbody' ? 'thermometer-sun' : spec.engine === 'idealgas' ? 'gauge' : spec.engine === 'rlc' ? 'activity' : spec.engine === 'doppler' ? 'audio-lines' : spec.engine === 'standingwave' ? 'waves' : spec.engine === 'collision' ? 'arrow-left-right' : 'shapes',
       title: spec.title,
       short: spec.summary,
       spec: spec,
@@ -551,6 +584,20 @@
           rows.push(['الطول الموجي', waveState.wavelength.toFixed(3) + ' m']);
           rows.push(['الانحراف عن الرنين', (waveState.detuning * 100).toFixed(2) + '%']);
           rows.push(['الحالة', waveState.isNearResonance ? 'قرب الرنين' : 'خارج الرنين']);
+        }
+        if (spec.engine === 'collision') {
+          var result = ENGINE.collisionOutcome(
+            param(prm, 'mass1', 2), param(prm, 'mass2', 3),
+            param(prm, 'speed1', 3), -param(prm, 'speed2', 2),
+            param(prm, 'restitution', 1)
+          );
+          rows.push(['سرعة الأولى بعد التصادم', result.velocity1After.toFixed(2) + ' m/s']);
+          rows.push(['سرعة الثانية بعد التصادم', result.velocity2After.toFixed(2) + ' m/s']);
+          rows.push(['الزخم قبل / بعد', result.momentumBefore.toFixed(2) + ' / ' + result.momentumAfter.toFixed(2) + ' kg·m/s']);
+          rows.push(['الطاقة الحركية قبل', result.kineticEnergyBefore.toFixed(2) + ' J']);
+          rows.push(['الطاقة الحركية بعد', result.kineticEnergyAfter.toFixed(2) + ' J']);
+          rows.push(['الطاقة المفقودة', result.kineticEnergyLoss.toFixed(2) + ' J']);
+          rows.push(['معامل الارتداد', result.restitution.toFixed(2)]);
         }
         return rows;
       };
@@ -2790,6 +2837,105 @@
         updateModel(0);
         st.sph.r = 9.2;
         st.place();
+      } else if (spec.engine === 'collision') {
+        // One-dimensional head-on collision of two balls on a low-friction track.
+        var trackMaterial = new T.MeshPhongMaterial({ color: 0x667b88, metalness: .78, shininess: 85 });
+        var track = new T.Mesh(new T.BoxGeometry(6.1, .09, .52), trackMaterial);
+        track.position.y = -.55;
+        S.add(track);
+        var guideLine = new T.Mesh(new T.BoxGeometry(5.9, .025, .025),
+          new T.MeshBasicMaterial({ color: 0x84a2b3, transparent: true, opacity: .65 }));
+        guideLine.position.set(0, -.48, .28);
+        S.add(guideLine);
+
+        var ball1Material = new T.MeshPhongMaterial({
+          color: 0x45c8ed, emissive: 0x073e56, shininess: 100
+        });
+        var ball2Material = new T.MeshPhongMaterial({
+          color: 0xffb65e, emissive: 0x57290b, shininess: 100
+        });
+        var ball1 = new T.Mesh(new T.SphereGeometry(.34, 32, 24), ball1Material);
+        var ball2 = new T.Mesh(new T.SphereGeometry(.42, 32, 24), ball2Material);
+        S.add(ball1); S.add(ball2);
+        var glow1 = new T.PointLight(0x41d8ff, .7, 2.6);
+        var glow2 = new T.PointLight(0xffb35c, .7, 2.6);
+        S.add(glow1); S.add(glow2);
+
+        var arrow1 = new T.ArrowHelper(new T.Vector3(1, 0, 0), new T.Vector3(), .8, 0x55dcff, .18, .12);
+        var arrow2 = new T.ArrowHelper(new T.Vector3(-1, 0, 0), new T.Vector3(), .8, 0xffc06a, .18, .12);
+        S.add(arrow1); S.add(arrow2);
+
+        var phaseLabelLine = new T.Line(
+          new T.BufferGeometry().setFromPoints([
+            new T.Vector3(-2.4, .9, .05),
+            new T.Vector3(2.4, .9, .05)
+          ]),
+          new T.LineBasicMaterial({ color: 0x4d6578, transparent: true, opacity: .32 })
+        );
+        S.add(phaseLabelLine);
+
+        var collisionResult = null, lastCollisionSignature = '';
+        var collisionMoment = 0, collisionStarts = true;
+        function setupCollision() {
+          var m1 = param(prm, 'mass1', 2), m2 = param(prm, 'mass2', 3);
+          var u1 = param(prm, 'speed1', 3), u2 = -param(prm, 'speed2', 2);
+          var e = param(prm, 'restitution', 1);
+          collisionResult = ENGINE.collisionOutcome(m1, m2, u1, u2, e);
+          var speedSum = Math.max(.1, u1 - u2);
+          collisionMoment = (3.9 - .9) / speedSum;
+          lastCollisionSignature = [m1, m2, u1, u2, e].join('|');
+        }
+        setupCollision();
+
+        updateModel = function () {
+          var signature = [
+            param(prm, 'mass1', 2), param(prm, 'mass2', 3),
+            param(prm, 'speed1', 3), -param(prm, 'speed2', 2),
+            param(prm, 'restitution', 1)
+          ].join('|');
+          if (signature !== lastCollisionSignature) setupCollision();
+
+          var cycleDuration = collisionMoment + 4.2;
+          var localTime = time % cycleDuration;
+          var m1 = param(prm, 'mass1', 2), m2 = param(prm, 'mass2', 3);
+          var u1 = param(prm, 'speed1', 3), u2 = -param(prm, 'speed2', 2);
+          var scaleSpeed = .45;
+          var contactTime = collisionMoment;
+          var contactX1 = -1.95 + u1 * scaleSpeed * contactTime;
+          var contactX2 = 1.95 + u2 * scaleSpeed * contactTime;
+          var x1, x2, v1, v2;
+          if (localTime <= contactTime) {
+            x1 = -1.95 + u1 * scaleSpeed * localTime;
+            x2 = 1.95 + u2 * scaleSpeed * localTime;
+            v1 = u1; v2 = u2;
+          } else {
+            var afterTime = localTime - contactTime;
+            x1 = contactX1 + collisionResult.velocity1After * scaleSpeed * afterTime;
+            x2 = contactX2 + collisionResult.velocity2After * scaleSpeed * afterTime;
+            v1 = collisionResult.velocity1After; v2 = collisionResult.velocity2After;
+          }
+          if (localTime > cycleDuration - .05) {
+            x1 = -1.95; x2 = 1.95;
+          }
+          ball1.position.set(x1, -.05 + .34, .15);
+          ball2.position.set(x2, -.05 + .42, .15);
+          glow1.position.copy(ball1.position);
+          glow2.position.copy(ball2.position);
+          var dir1 = new T.Vector3(v1 >= 0 ? 1 : -1, 0, 0);
+          var dir2 = new T.Vector3(v2 >= 0 ? 1 : -1, 0, 0);
+          arrow1.position.set(x1, .48, .15);
+          arrow2.position.set(x2, .58, .15);
+          arrow1.setDirection(dir1);
+          arrow2.setDirection(dir2);
+          arrow1.setLength(.35 + Math.min(1.2, Math.abs(v1) * .18), .16, .1);
+          arrow2.setLength(.35 + Math.min(1.2, Math.abs(v2) * .18), .16, .1);
+          glow1.intensity = .25 + Math.min(1.2, Math.abs(v1) * .2);
+          glow2.intensity = .25 + Math.min(1.2, Math.abs(v2) * .2);
+        };
+        resetModel = function () { time = 0; setupCollision(); updateModel(0); };
+        updateModel(0);
+        st.sph.r = 9.8;
+        st.place();
       } else {
         var meshes = [];
         spec.objects.forEach(function (o) {
@@ -2872,6 +3018,7 @@
           if (spec.engine === 'rlc') return 'تتصل المقاومة والملف والمكثف على التوالي بمصدر متناوب. المفاعلة الحثية XL=ωL والمفاعلة السعوية XC=1/(ωC)، والممانعة Z=√(R²+(XL−XC)²). يبلغ التيار أعظمه قرب تردد الرنين f0=1/(2π√LC). يعرض المنظار موجتي الجهد والتيار وفرق الطور بينهما. نهمل مقاومة الملف الداخلية والطفيليات وتأثير الحمل غير المثالي.';
           if (spec.engine === 'doppler') return 'يتغير التردد المسموع بسبب الحركة النسبية بين المصدر والمستمع. مع اعتبار سرعة المصدر موجبة باتجاه المستمع وسرعة المستمع موجبة باتجاه المصدر: f′=f(c+vo)/(c−vs). عند الاقتراب تتقارب جبهات الموجة أمام المصدر ويزداد التردد، وعند الابتعاد تتباعد ويقل التردد. النموذج يستخدم موجات دائرية توضيحية وصوتاً في وسط ساكن، ولا يحسب انعكاس الصوت أو الرياح أو تغيّر سرعة الصوت مع الحرارة.';
           if (spec.engine === 'standingwave') return 'تتكون الموجة الواقفة من تراكب موجتين متعاكستين على وتر مثبت الطرفين. سرعة الموجة v=√(T/μ)، والترددات الطبيعية fn=n v/(2L)، والطول الموجي λn=2L/n. تظهر العقد عند نقاط الإزاحة الصفرية والبطون عند أقصى إزاحة. يغيّر شد الوتر والكثافة الخطية وطوله ترددات الرنين. النموذج يوضح استجابة توافقية مع تخميد مبسط، ولا يحسب خواص الوتر غير الخطية.';
+          if (spec.engine === 'collision') return 'يعرض النموذج تصادماً خطياً مباشراً بين جسمين. يُحفظ الزخم في جميع التصادمات، أما الطاقة الحركية فتُحفظ فقط في التصادم المرن عندما e=1. يحدد معامل الارتداد e نسبة سرعة التباعد إلى سرعة الاقتراب. عند e=0 يكون التصادم عديم الارتداد وتتحرك الكرتان بعده بسرعة مشتركة. نهمل الاحتكاك والقوى الخارجية خلال زمن التصادم.';
           return spec.assumptions || spec.principle || spec.summary;
         },
         dispose: function () { st.dispose(); }
