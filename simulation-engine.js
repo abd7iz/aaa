@@ -127,8 +127,8 @@
     });
     return out;
   }
-  function param(def, key, fallback) {
-    return typeof def.params[key] === 'number' ? def.params[key] : fallback;
+  function param(values, key, fallback) {
+    return values && typeof values[key] === 'number' ? values[key] : fallback;
   }
   function safeInfo(s) { return String(s || '').replace(/[<>]/g, ''); }
 
@@ -137,6 +137,7 @@
     var def = {
       id: 'generated',
       field: spec.field === 'biology' ? 'bio' : 'phy',
+      fieldLabel: ({ physics: 'الفيزياء', biology: 'الأحياء', chemistry: 'الكيمياء', astronomy: 'الفلك', mathematics: 'الرياضيات' })[spec.field],
       icon: spec.engine === 'tokamak' ? 'atom' : spec.engine === 'wave' ? 'activity' : spec.engine === 'pendulum' ? 'clock' : 'shapes',
       title: spec.title,
       short: spec.summary,
