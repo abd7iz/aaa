@@ -174,6 +174,7 @@ export default {
       }
 
       const body = JSON.parse(raw);
+      const jsonMode = body.response_format === "json";
       const history = body && body.history;
       if (!Array.isArray(history) || history.length < 1 || history.length > 26) {
         return json({ error: "صيغة المحادثة غير صحيحة." }, 400, origin);
@@ -222,7 +223,8 @@ export default {
             systemInstruction: { parts: [{ text: SYSTEM_INSTRUCTION }] },
             contents,
             generationConfig: {
-              maxOutputTokens: 1800
+              maxOutputTokens: jsonMode ? 4096 : 1800,
+              ...(jsonMode ? { responseMimeType: "application/json" } : {})
             }
           })
         });
@@ -256,7 +258,23 @@ export default {
         .join("\n").trim();
 
       if (!reply) {
-        return json({ error: "وصل رد فارغ من النموذج. أعد صياغة السؤال." }, 502, origin);
+        const firstCandidate = (payload.candidates || [])[0] || {};
+        const finishReason = firstCandidate.finishReason || null;
+        const blockReason = payload.promptFeedback?.blockReason || null;
+        const diagnostic = blockReason
+          ? "تم حظر الطلب بواسطة مرشح السلامة (" + blockReason + ")."
+          : finishReason === "MAX_TOKENS"
+            ? "انتهت مساحة الإخراج قبل اكتمال الرد (MAX_TOKENS)."
+            : finishReason
+              ? "أنهى النموذج الرد دون نص قابل للقراءة (" + finishReason + ")."
+              : "لم يصل نص قابل للقراءة من النموذج.";
+        console.error("Gemini returned no text", {
+          model: activeModel,
+          finish_reason: finishReason,
+          block_reason: blockReason,
+          usage: payload.usageMetadata || null
+        });
+        return json({ error: "رد Gemini فارغ. " + diagnostic }, 502, origin);
       }
 
       return json({ reply, usage: payload.usageMetadata || null, model: activeModel }, 200, origin);
