@@ -1,7 +1,7 @@
 # MUKHTABAR — Project Status
 
 Last updated: 2026-11-25
-Current UI asset version: v38
+Current UI asset version: v39
 
 ## Repository
 - Code: https://github.com/abd7iz/aaa
@@ -99,3 +99,8 @@ Current UI asset version: v38
 - Corrected missing independent scene-branch headers for decay, photoelectric, polarization, dipole, diffraction and wave.
 - Each dedicated experiment now runs in its own if/else-if branch rather than continuing into later experiment setup blocks.
 - CI now checks that all dedicated scene branches remain present.
+
+
+## Branch integrity
+- Restored independent conditional branches for all dedicated renderers: tokamak, interference, induction, bohr, decay, photoelectric, polarization, dipole, diffraction, wave, blackbody and pendulum.
+- CI now verifies all dedicated branch headers and tests key physics helpers.
