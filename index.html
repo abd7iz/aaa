@@ -108,7 +108,7 @@ input[type=range]{width:100%;direction:ltr;accent-color:var(--ac);height:28px}
 <script>window.MUKHTABAR_CONFIG={AI_ENDPOINT:window.MUKHTABAR_AI_ENDPOINT||""};</script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/lucide@0.469.0/dist/umd/lucide.min.js"></script>
-<script src="./simulation-engine.js?v=34"></script>
+<script src="./simulation-engine.js?v=35"></script>
 <script>
 (function(){
 'use strict';
@@ -831,6 +831,62 @@ EXPS.decay = window.MUKHTABAR_ENGINE.createDefinition({
 }, makeStage, addLights);
 EXPS.decay.id = 'decay';
 
+/* ===== Ready-made tokamak, wave and pendulum labs ===== */
+EXPS.tokamak = window.MUKHTABAR_ENGINE.createDefinition({
+  schema: 'mukhtabar-sim-v1',
+  title: 'التوكاماك — احتواء البلازما',
+  field: 'physics',
+  engine: 'tokamak',
+  summary: 'شاهد البلازما داخل حجرة حلقية مع ملفات المجال المغناطيسي وتحكم بدرجة الحرارة والكثافة.',
+  objective: 'استكشاف أثر شدة المجال وحرارة البلازما وكثافتها في الحركة والوهج وخطوط المجال.',
+  principle: 'تُستخدم المجالات المغناطيسية في أجهزة التوكاماك لحصر البلازما الساخنة بعيداً عن جدار الوعاء.',
+  formula: 'qv × B   ·   نموذج بصري مبسّط',
+  assumptions: 'هذا نموذج بصري تعليمي، لا يحل معادلات MHD ولا يتنبأ باستقرار مفاعل حقيقي.',
+  controls: [
+    { key: 'field', label: 'شدة المجال المغناطيسي', min: 1, max: 12, step: .1, value: 5, unit: 'T' },
+    { key: 'temperature', label: 'درجة حرارة البلازما', min: 5, max: 150, step: 1, value: 50, unit: 'keV' },
+    { key: 'density', label: 'كثافة البلازما', min: .5, max: 10, step: .1, value: 5, unit: '×10¹⁹ م⁻³' }
+  ]
+}, makeStage, addLights);
+EXPS.tokamak.id = 'tokamak';
+
+EXPS.wave = window.MUKHTABAR_ENGINE.createDefinition({
+  schema: 'mukhtabar-sim-v1',
+  title: 'الموجة المستعرضة — السعة والتردد',
+  field: 'physics',
+  engine: 'wave',
+  summary: 'شاهد موجة جيبية تنتشر وغيّر سعتها وترددها وسرعتها.',
+  objective: 'فهم العلاقة بين السعة والتردد وسرعة انتشار الموجة.',
+  principle: 'تصف الموجة الجيبية اضطراباً ينتقل في الوسط، وتحدد السعة أقصى إزاحة والتردد عدد الاهتزازات في الثانية.',
+  formula: 'y(x,t) = A sin(kx − ωt)',
+  assumptions: 'موجة جيبية مثالية في وسط خطي ومتجانس.',
+  controls: [
+    { key: 'amplitude', label: 'سعة الموجة', min: .2, max: 2.5, step: .05, value: 1, unit: 'm' },
+    { key: 'frequency', label: 'التردد', min: .2, max: 4, step: .05, value: 1.2, unit: 'Hz' },
+    { key: 'speed', label: 'سرعة الانتشار', min: .2, max: 5, step: .05, value: 2, unit: 'm/s' }
+  ]
+}, makeStage, addLights);
+EXPS.wave.id = 'wave';
+
+EXPS.pendulum = window.MUKHTABAR_ENGINE.createDefinition({
+  schema: 'mukhtabar-sim-v1',
+  title: 'البندول البسيط — الحركة التوافقية',
+  field: 'physics',
+  engine: 'pendulum',
+  summary: 'غيّر طول الخيط والجاذبية وزاوية البداية والتخميد وراقب حركة البندول.',
+  objective: 'استكشاف تأثير طول البندول والجاذبية والتخميد في حركته وزمنه الدوري.',
+  principle: 'لزاوية صغيرة تقريباً، الزمن الدوري للبندول البسيط T = 2π√(L/g).',
+  formula: 'θ̈ + (b/m)θ̇ + (g/L)sinθ = 0',
+  assumptions: 'كتلة نقطية وخيط عديم الكتلة، مع نموذج تخميد مبسّط.',
+  controls: [
+    { key: 'length', label: 'طول الخيط', min: .5, max: 4, step: .05, value: 2, unit: 'm' },
+    { key: 'gravity', label: 'تسارع الجاذبية', min: .5, max: 20, step: .05, value: 9.81, unit: 'm/s²' },
+    { key: 'angle', label: 'زاوية البداية', min: 5, max: 80, step: 1, value: 35, unit: '°' },
+    { key: 'damping', label: 'التخميد', min: 0, max: .8, step: .01, value: .04, unit: '' }
+  ]
+}, makeStage, addLights);
+EXPS.pendulum.id = 'pendulum';
+
 /* ---------- Demo interpreter / AI backend ---------- */
 function normText(s){
   return String(s).replace(/[٠-٩]/g,function(d){return '٠١٢٣٤٥٦٧٨٩'.indexOf(d);}).replace(/[۰-۹]/g,function(d){return '۰۱۲۳۴۵۶۷۸۹'.indexOf(d);}).toLowerCase();
@@ -852,6 +908,9 @@ function demoInterpret(text){
   else if(/(كهروضوئي|فوتوالكتر|تأثير ضوئي|دالة الشغل|photoelectric|photo.?electric)/.test(t))id='photoelectric';
   else if(/(استقطاب|مستقطب|قانون مالوس|polarization|malus)/.test(t))id='polarization';
   else if(/(ثنائي القطب|ثنائية القطب|مجال مغناطيسي|خطوط المجال|مغناطيس قضبي|dipole|magnetic field)/.test(t))id='dipole';
+  else if(/(توكاماك|بلازما|احتواء مغناطيسي|tokamak|plasma)/.test(t))id='tokamak';
+  else if(/(بندول|رقاص|pendulum)/.test(t))id='pendulum';
+  else if(/(موجة|موجات|مستعرضة|طولية|wave)/.test(t))id='wave';
   else if(/(حث كهرومغناطيسي|تحريض|فاراداي|مولد كهربائي|ملف دوار|induction|generator)/.test(t))id='induction';
   else if(/(مقذوف|قذيف|قذف|رمي|اطلاق|إطلاق|مدفع|كرة|projectile|launch|cannon|ball|trajectory)/.test(t))id='projectile';
   else if(/(مدار|كوكب|شمس|كبلر|جاذبي|فلك|orbit|planet|kepler|gravit|solar)/.test(t))id='orbit';
@@ -877,7 +936,7 @@ async function aiGenerate(prompt){
   try{
     var requestPrompt=[
       'أنت مهندس يبني تجارب علمية تفاعلية لمختبر MUKHTABAR. أخرج إعداداً قابلاً للتشغيل بصيغة JSON فقط.',
-      'إذا كان الطلب يطابق تجربة جاهزة في المختبر فاخترها مباشرة بصيغة {"kind":"builtin","experimentId":"id","params":{},"note":""}. التجارب الجاهزة: mitosis, projectile, orbit, interference, induction, diffraction, dipole, polarization, photoelectric, decay. لا تعِد بناء تجربة جاهزة كمشهد عام. إذا كان الطلب ظاهرة جديدة غير موجودة فأنشئ تجربة جديدة بصيغة {"kind":"generated","experiment":{...}}.',
+      'إذا كان الطلب يطابق تجربة جاهزة في المختبر فاخترها مباشرة بصيغة {"kind":"builtin","experimentId":"id","params":{},"note":""}. التجارب الجاهزة: mitosis, projectile, orbit, tokamak, wave, pendulum, interference, induction, diffraction, dipole, polarization, photoelectric, decay. لا تعِد بناء تجربة جاهزة كمشهد عام. إذا كان الطلب ظاهرة جديدة غير موجودة فأنشئ تجربة جديدة بصيغة {"kind":"generated","experiment":{...}}.',
       'مخطط التجربة الجديدة: {"schema":"mukhtabar-sim-v1","title":"اسم عربي","field":"physics|biology|chemistry|astronomy|mathematics","engine":"tokamak|wave|pendulum|interference|induction|diffraction|dipole|polarization|photoelectric|decay|scene","summary":"وصف قصير","objective":"هدف التجربة","principle":"شرح المبدأ العلمي","formula":"معادلة قصيرة أو فارغ","assumptions":"حدود النموذج","controls":[{"key":"amplitude","label":"السعة","min":0.2,"max":2.5,"step":0.05,"value":1,"unit":"m","description":"تأثير المتغير"}],"objects":[{"type":"sphere|box|cylinder|torus|ring|cone|icosahedron","label":"اسم العنصر","color":"#38bdf8","emissive":"#082e59","position":[0,0,0],"scale":[1,1,1],"rotation":[0,0,0],"motion":{"type":"none|orbit|rotate|pulse|swing|helix","speed":1,"radius":2,"amplitude":0.5,"axis":"x|y|z","control":"amplitude"}}]}',
       'tokamak: صمّم حجرة حلقية تشبه جهاز توكاماك، وبلازما متوهجة، ملفات مغناطيسية، خطوط مجال ثلاثية الأبعاد وجسيمات مشحونة. مفاتيح التحكم field بوحدة T وtemperature بوحدة keV وdensity بوحدة ×10¹⁹ م⁻³. صرّح بأنه نموذج توضيحي وليس حلاً لمعادلات MHD.',
       'wave: موجة جيبية متحركة، وتحكم amplitude وfrequency وspeed.',
