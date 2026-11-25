@@ -108,7 +108,7 @@ input[type=range]{width:100%;direction:ltr;accent-color:var(--ac);height:28px}
 <script>window.MUKHTABAR_CONFIG={AI_ENDPOINT:window.MUKHTABAR_AI_ENDPOINT||""};</script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/lucide@0.469.0/dist/umd/lucide.min.js"></script>
-<script src="./simulation-engine.js?v=49"></script>
+<script src="./simulation-engine.js?v=50"></script>
 <script>
 (function(){
 'use strict';
@@ -1088,6 +1088,26 @@ EXPS.venturi = window.MUKHTABAR_ENGINE.createDefinition({
 }, makeStage, addLights);
 EXPS.venturi.id = 'venturi';
 
+/* ===== Archimedes' principle: floating and sinking ===== */
+EXPS.buoyancy = window.MUKHTABAR_ENGINE.createDefinition({
+  schema: 'mukhtabar-sim-v1',
+  title: 'مبدأ أرخميدس — الطفو والغوص',
+  field: 'physics',
+  engine: 'buoyancy',
+  summary: 'غيّر كثافة الجسم والسائل وشاهد الجسم يطفو أو يغوص داخل الخزان.',
+  objective: 'مقارنة وزن الجسم بقوة الطفو وتحديد الجزء المغمور من الجسم.',
+  principle: 'قوة الطفو تساوي وزن السائل المزاح: Fb=ρfluid g Vsub.',
+  formula: 'Fb = ρfluid g Vsub   ·   Vsub/V = ρobject/ρfluid (للجسم الطافي)',
+  assumptions: 'سائل ساكن وجسم منتظم، مع إهمال اللزوجة وتأثيرات الشد السطحي.',
+  controls: [
+    { key: 'object_density', label: 'كثافة الجسم', min: 200, max: 1500, step: 10, value: 600, unit: 'kg/m³' },
+    { key: 'fluid_density', label: 'كثافة السائل', min: 700, max: 1200, step: 10, value: 1000, unit: 'kg/m³' },
+    { key: 'volume', label: 'حجم الجسم', min: .001, max: .02, step: .001, value: .01, unit: 'm³' },
+    { key: 'gravity', label: 'تسارع الجاذبية', min: 1, max: 20, step: .1, value: 9.81, unit: 'm/s²' }
+  ]
+}, makeStage, addLights);
+EXPS.buoyancy.id = 'buoyancy';
+
 /* ---------- Demo interpreter / AI backend ---------- */
 function normText(s){
   return String(s).replace(/[٠-٩]/g,function(d){return '٠١٢٣٤٥٦٧٨٩'.indexOf(d);}).replace(/[۰-۹]/g,function(d){return '۰۱۲۳۴۵۶۷۸۹'.indexOf(d);}).toLowerCase();
@@ -1105,6 +1125,7 @@ function demoInterpret(text){
   if(/(ميتوز|انقسام|خلي|كروموسوم|mitosis|cell|division|chromosom)/.test(t))id='mitosis';
   else if(/(تداخل|شقين|شق يونغ|يونغ|double.?slit|interference)/.test(t))id='interference';
   else if(/(حيود|محزوز|شبكة حيود|grating|diffraction)/.test(t))id='diffraction';
+  else if(/(طفو|مبدأ أرخميدس|قوة الطفو|جسم يغرق|جسم يطفو|archimedes|buoyancy|floating body)/.test(t))id='buoyancy';
   else if(/(فنتوري|أنبوب فنتوري|برنولي|معادلة الاستمرارية|تدفق السوائل|venturi|bernoulli|continuity equation)/.test(t))id='venturi';
   else if(/(كهرباء ساكنة|قانون كولوم|مجال كهربائي|جهد كهربائي|شحنتين نقطيتين|electrostatic|coulomb law|electric field)/.test(t))id='electrostatic';
   else if(/(معايرة|نقطة التكافؤ|حمض وقاعدة|منحنى ph|titration|acid.?base)/.test(t))id='titration';
@@ -1147,8 +1168,8 @@ async function aiGenerate(prompt){
   try{
     var requestPrompt=[
       'أنت مهندس يبني تجارب علمية تفاعلية لمختبر MUKHTABAR. أخرج إعداداً قابلاً للتشغيل بصيغة JSON فقط.',
-      'إذا كان الطلب يطابق تجربة جاهزة في المختبر فاخترها مباشرة بصيغة {"kind":"builtin","experimentId":"id","params":{},"note":""}. التجارب الجاهزة: mitosis, projectile, orbit, tokamak, wave, pendulum, interference, induction, diffraction, dipole, polarization, photoelectric, decay, bohr, blackbody, idealgas, rlc, doppler, standingwave, collision, titration, electrostatic, venturi. لا تعِد بناء تجربة جاهزة كمشهد عام. إذا كان الطلب ظاهرة جديدة غير موجودة فأنشئ تجربة جديدة بصيغة {"kind":"generated","experiment":{...}}.',
-      'مخطط التجربة الجديدة: {"schema":"mukhtabar-sim-v1","title":"اسم عربي","field":"physics|biology|chemistry|astronomy|mathematics","engine":"tokamak|wave|pendulum|interference|induction|diffraction|dipole|polarization|photoelectric|decay|bohr|blackbody|idealgas|rlc|doppler|standingwave|collision|titration|electrostatic|venturi|scene","summary":"وصف قصير","objective":"هدف التجربة","principle":"شرح المبدأ العلمي","formula":"معادلة قصيرة أو فارغ","assumptions":"حدود النموذج","controls":[{"key":"amplitude","label":"السعة","min":0.2,"max":2.5,"step":0.05,"value":1,"unit":"m","description":"تأثير المتغير"}],"objects":[{"type":"sphere|box|cylinder|torus|ring|cone|icosahedron","label":"اسم العنصر","color":"#38bdf8","emissive":"#082e59","position":[0,0,0],"scale":[1,1,1],"rotation":[0,0,0],"motion":{"type":"none|orbit|rotate|pulse|swing|helix","speed":1,"radius":2,"amplitude":0.5,"axis":"x|y|z","control":"amplitude"}}]}',
+      'إذا كان الطلب يطابق تجربة جاهزة في المختبر فاخترها مباشرة بصيغة {"kind":"builtin","experimentId":"id","params":{},"note":""}. التجارب الجاهزة: mitosis, projectile, orbit, tokamak, wave, pendulum, interference, induction, diffraction, dipole, polarization, photoelectric, decay, bohr, blackbody, idealgas, rlc, doppler, standingwave, collision, titration, electrostatic, venturi, buoyancy. لا تعِد بناء تجربة جاهزة كمشهد عام. إذا كان الطلب ظاهرة جديدة غير موجودة فأنشئ تجربة جديدة بصيغة {"kind":"generated","experiment":{...}}.',
+      'مخطط التجربة الجديدة: {"schema":"mukhtabar-sim-v1","title":"اسم عربي","field":"physics|biology|chemistry|astronomy|mathematics","engine":"tokamak|wave|pendulum|interference|induction|diffraction|dipole|polarization|photoelectric|decay|bohr|blackbody|idealgas|rlc|doppler|standingwave|collision|titration|electrostatic|venturi|buoyancy|scene","summary":"وصف قصير","objective":"هدف التجربة","principle":"شرح المبدأ العلمي","formula":"معادلة قصيرة أو فارغ","assumptions":"حدود النموذج","controls":[{"key":"amplitude","label":"السعة","min":0.2,"max":2.5,"step":0.05,"value":1,"unit":"m","description":"تأثير المتغير"}],"objects":[{"type":"sphere|box|cylinder|torus|ring|cone|icosahedron","label":"اسم العنصر","color":"#38bdf8","emissive":"#082e59","position":[0,0,0],"scale":[1,1,1],"rotation":[0,0,0],"motion":{"type":"none|orbit|rotate|pulse|swing|helix","speed":1,"radius":2,"amplitude":0.5,"axis":"x|y|z","control":"amplitude"}}]}',
       'tokamak: صمّم حجرة حلقية تشبه جهاز توكاماك، وبلازما متوهجة، ملفات مغناطيسية، خطوط مجال ثلاثية الأبعاد وجسيمات مشحونة. مفاتيح التحكم field بوحدة T وtemperature بوحدة keV وdensity بوحدة ×10¹⁹ م⁻³. صرّح بأنه نموذج توضيحي وليس حلاً لمعادلات MHD.',
       'wave: موجة جيبية متحركة، وتحكم amplitude وfrequency وspeed.',
       'pendulum: بندول بسيط يتحرك بالجاذبية، وتحكم length وgravity وangle وdamping.',
@@ -1169,6 +1190,7 @@ async function aiGenerate(prompt){
        'titration: محاكاة معايرة حمض قوي أحادي البروتون بقاعدة قوية أحادية الهيدروكسيد عند 25°C. استخدم acid_concentration وbase_concentration بوحدة mol/L، وacid_volume وbase_added بالمليلتر. احسب مولات H+ وOH− والفائض بعد التفاعل 1:1، ثم pH من تركيز الفائض بعد القسمة على الحجم الكلي. عند التكافؤ المثالي pH=7. اعرض السحاحة والدورق ولون الدليل ومنحنى pH مقابل الحجم. اذكر أن النموذج لا يغطي الأحماض الضعيفة أو النشاط الكيميائي.',
        'electrostatic: تجربة شحنتين نقطيتين. استخدم charge1 وcharge2 بالنانوكولوم، separation بالمتر، probe_x وprobe_y بالمتر. احسب مركبتي المجال Ex,Ey والجهد V بجمع مساهمتي كولوم للشحنتين، وارسم خطوط المجال من الموجب إلى السالب وأظهر مجساً متحركاً. اذكر أن النموذج لشحنات نقطية في الفراغ.',
        'venturi: أنبوب فنتوري أفقي لسائل غير قابل للانضغاط. استخدم inlet_velocity بوحدة m/s وinlet_radius وthroat_radius بوحدة m وdensity بوحدة kg/m³ وinlet_pressure بوحدة kPa. احسب v2=v1(r1/r2)² وP2=P1+½ρ(v1²−v2²). أظهر الأنبوب المتغير المقطع وجسيمات سائل تتسارع في الحلق. اذكر فرضية الجريان المستقر وإهمال الفواقد.',
+       'buoyancy: مبدأ أرخميدس لجسم منتظم في سائل ساكن. استخدم object_density وfluid_density بوحدة kg/m³ وvolume بوحدة m³ وgravity بوحدة m/s². احسب W=ρobject V g وFb=ρfluid g Vsub. إذا كان الجسم طافياً فالنسبة المغمورة ρobject/ρfluid، وإذا كانت كثافته أعلى يغرق ويكون مغموراً كلياً. أظهر خزاناً وجسماً وقياسي الوزن والطفو. اذكر إهمال اللزوجة والشد السطحي.',
        'scene: كوّن مشهداً ثلاثي الأبعاد مفهوماً من 2 إلى 8 عناصر مترابطة، مع حركات ذات معنى وليس كرات عشوائية.',
       'أضف 3 إلى 6 متغيرات فقط وبحد أقصى 7. لا تستخدم HTML أو JavaScript أو روابط أو كوداً. لا تخترع قياسات، وصرّح بحدود الدقة عند الحاجة.',
       'أعد JSON صالحاً فقط بلا Markdown أو شرح خارجي.',
@@ -1225,7 +1247,7 @@ function viewHome(){
 }
 
 function viewCreate(){
-  var ex=['محاكاة ثلاثية الأبعاد للانقسام المتساوي مع التحكم بالمراحل','مقذوف بزاوية 60 درجة وسرعة 30 على القمر','مدار كوكب حول نجم كتلته 2','توكاماك ثلاثي الأبعاد لاحتواء البلازما مغناطيسياً','تجربة شقي يونغ للتداخل الضوئي مع التحكم بالطول الموجي والمسافة بين الشقين وبعد الشاشة','مولد كهربائي بملف نحاسي دوار بين قطبي مغناطيس مع عرض الجهد المستحث','محزوز حيود بخمسة شقوق لإظهار طيف الرتب المضيئة وتغيير الطول الموجي والتباعد والعرض','مغناطيس قضبي وخطوط مجال ثنائي القطب مع مجس يقيس المجال حسب بعده وزاويته','تجربة استقطاب الضوء بمرشحين دوارين وتحكم بالزاوية والطول الموجي وشدة المصدر','التأثير الكهروضوئي على سطح معدني مع تغيير تردد الضوء ودالة الشغل وشدة المصدر','اضمحلال إشعاعي لعينة من 200 نواة مع تغيير عمر النصف ومراقبة العدد الباقي مع الزمن','طيف ذرة الهيدروجين بنموذج بور مع انتقال الإلكترون بين المستويات وحساب طول موجة الفوتون','إشعاع الجسم الأسود: غيّر درجة الحرارة وشاهد منحنى بلانك وطول موجة القمة والقدرة المشعة','غاز مثالي داخل أسطوانة بمكبس متحرك مع تغيير الحرارة وكمية الغاز والحجم وقراءة الضغط','دائرة RLC على التوالي مع تغيير التردد والمقاومة والحث والسعة ومراقبة الرنين وفرق الطور','تأثير دوبلر: مصدر صوت متحرك باتجاه مستمع أو بعيداً عنه مع تغيير السرعة وتردد الصوت','موجة واقفة على وتر مشدود مع التحكم بالطول والشد والكثافة والتوافقية والتردد لإظهار العقد والبطون','تصادم كرتين بكتلتين وسرعتين مختلفتين مع تغيير معامل الارتداد ومقارنة الزخم والطاقة قبل وبعد','معايرة حمض قوي بقاعدة قوية مع تغيير التركيز والحجم ومشاهدة منحنى pH ونقطة التكافؤ','شحنتان كهربائيتان نقطيتان مع عرض خطوط المجال وتحريك مجس لقياس المجال والجهد','أنبوب فنتوري يتضيق ويتسع مع تغيير سرعة الدخول ونصف القطر والكثافة ومراقبة الضغط والسرعة','موجة مستعرضة مع التحكم بالسعة والتردد وسرعة الانتشار','بندول مع تغيير الطول والجاذبية والتخميد'];
+  var ex=['محاكاة ثلاثية الأبعاد للانقسام المتساوي مع التحكم بالمراحل','مقذوف بزاوية 60 درجة وسرعة 30 على القمر','مدار كوكب حول نجم كتلته 2','توكاماك ثلاثي الأبعاد لاحتواء البلازما مغناطيسياً','تجربة شقي يونغ للتداخل الضوئي مع التحكم بالطول الموجي والمسافة بين الشقين وبعد الشاشة','مولد كهربائي بملف نحاسي دوار بين قطبي مغناطيس مع عرض الجهد المستحث','محزوز حيود بخمسة شقوق لإظهار طيف الرتب المضيئة وتغيير الطول الموجي والتباعد والعرض','مغناطيس قضبي وخطوط مجال ثنائي القطب مع مجس يقيس المجال حسب بعده وزاويته','تجربة استقطاب الضوء بمرشحين دوارين وتحكم بالزاوية والطول الموجي وشدة المصدر','التأثير الكهروضوئي على سطح معدني مع تغيير تردد الضوء ودالة الشغل وشدة المصدر','اضمحلال إشعاعي لعينة من 200 نواة مع تغيير عمر النصف ومراقبة العدد الباقي مع الزمن','طيف ذرة الهيدروجين بنموذج بور مع انتقال الإلكترون بين المستويات وحساب طول موجة الفوتون','إشعاع الجسم الأسود: غيّر درجة الحرارة وشاهد منحنى بلانك وطول موجة القمة والقدرة المشعة','غاز مثالي داخل أسطوانة بمكبس متحرك مع تغيير الحرارة وكمية الغاز والحجم وقراءة الضغط','دائرة RLC على التوالي مع تغيير التردد والمقاومة والحث والسعة ومراقبة الرنين وفرق الطور','تأثير دوبلر: مصدر صوت متحرك باتجاه مستمع أو بعيداً عنه مع تغيير السرعة وتردد الصوت','موجة واقفة على وتر مشدود مع التحكم بالطول والشد والكثافة والتوافقية والتردد لإظهار العقد والبطون','تصادم كرتين بكتلتين وسرعتين مختلفتين مع تغيير معامل الارتداد ومقارنة الزخم والطاقة قبل وبعد','معايرة حمض قوي بقاعدة قوية مع تغيير التركيز والحجم ومشاهدة منحنى pH ونقطة التكافؤ','شحنتان كهربائيتان نقطيتان مع عرض خطوط المجال وتحريك مجس لقياس المجال والجهد','أنبوب فنتوري يتضيق ويتسع مع تغيير سرعة الدخول ونصف القطر والكثافة ومراقبة الضغط والسرعة','مبدأ أرخميدس: جسم داخل خزان يتغير طفوُه مع الكثافة والحجم والجاذبية','موجة مستعرضة مع التحكم بالسعة والتردد وسرعة الانتشار','بندول مع تغيير الطول والجاذبية والتخميد'];
   var ai=!!CFG.AI_ENDPOINT;
   view.innerHTML='<div class="page"><h1>تجربة جديدة</h1><p class="mut">اكتب ما تريد استكشافه.</p>'+
    (ai?'<div class="banner ok">'+ic('circle-check')+'<span>الذكاء الاصطناعي مفعّل: ينشئ محاكاة جديدة أو يضبط تجربة موجودة، مع مشهد ثلاثي الأبعاد وأدوات تحكم وشرح علمي.</span></div>'
