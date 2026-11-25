@@ -51,7 +51,7 @@
     if (!raw || typeof raw !== 'object' || raw.schema !== 'mukhtabar-sim-v1') {
       throw new Error('صيغة التجربة التي أنشأها الذكاء الاصطناعي غير معروفة.');
     }
-    var engine = ['tokamak', 'wave', 'pendulum', 'scene'].indexOf(raw.engine) >= 0 ? raw.engine : null;
+    var engine = ['tokamak', 'wave', 'pendulum', 'interference', 'scene'].indexOf(raw.engine) >= 0 ? raw.engine : null;
     if (!engine) throw new Error('نوع المحاكاة غير مدعوم في محرك المختبر الحالي.');
     var field = FIELDS.indexOf(raw.field) >= 0 ? raw.field : 'physics';
     var used = {}, controls = [];
@@ -78,6 +78,10 @@
       ensure(defaultControl('gravity', 'تسارع الجاذبية', .5, 20, .05, 9.81, 'm/s²'));
       ensure(defaultControl('angle', 'زاوية البداية', 5, 80, 1, 35, '°'));
       ensure(defaultControl('damping', 'التخميد', 0, .8, .01, .04, ''));
+    } else if (engine === 'interference') {
+      ensure(defaultControl('wavelength', 'الطول الموجي للضوء', 380, 700, 5, 550, 'nm'));
+      ensure(defaultControl('separation', 'المسافة بين الشقين', .1, .6, .01, .25, 'mm'));
+      ensure(defaultControl('distance', 'بعد الشاشة', .5, 2.5, .05, 1.5, 'm'));
     }
     if (!controls.length) controls.push(defaultControl('rate', 'معدل الحركة', .1, 3, .05, 1, '×'));
     if (controls.length > 7) controls = controls.slice(0, 7);
@@ -146,7 +150,7 @@
       id: 'generated',
       field: spec.field === 'biology' ? 'bio' : 'phy',
       fieldLabel: ({ physics: 'الفيزياء', biology: 'الأحياء', chemistry: 'الكيمياء', astronomy: 'الفلك', mathematics: 'الرياضيات' })[spec.field],
-      icon: spec.engine === 'tokamak' ? 'atom' : spec.engine === 'wave' ? 'activity' : spec.engine === 'pendulum' ? 'clock' : 'shapes',
+      icon: spec.engine === 'tokamak' ? 'atom' : spec.engine === 'wave' ? 'activity' : spec.engine === 'pendulum' ? 'clock' : spec.engine === 'interference' ? 'waves' : 'shapes',
       title: spec.title,
       short: spec.summary,
       spec: spec,
@@ -163,10 +167,16 @@
       addLights(S, true);
       var disposers = [];
       var readout = function () {
-        return Object.keys(prm).map(function (k) {
+        var rows = Object.keys(prm).map(function (k) {
           var c = def.params.filter(function (p) { return p.key === k; })[0];
           return [c ? c.label : k, prm[k].toFixed(2) + (c && c.unit ? ' ' + c.unit : '')];
         });
+        if (spec.engine === 'interference') {
+          var fringeMm = param(prm, 'wavelength', 550) * param(prm, 'distance', 1.5) /
+            Math.max(.001, param(prm, 'separation', .25)) / 1000;
+          rows.push(['المسافة بين الأهداب', fringeMm.toFixed(2) + ' mm']);
+        }
+        return rows;
       };
       var actions = function () {
         return [
@@ -512,6 +522,142 @@
         resetModel = function () { time = 0; updateModel(0); };
         updateModel(0);
         st.sph.r = 13.5; st.place();
+      } else if (spec.engine === 'interference') {
+        // Young's double-slit experiment: coherent monochromatic light and ideal far-field fringes.
+        var screenW = 5.2, screenH = 3.2, screenZ = -4.05, barrierZ = .72;
+        var screenGeo = new T.PlaneGeometry(screenW, screenH, 260, 8);
+        var screenColors = new Float32Array(screenGeo.attributes.position.count * 3);
+        screenGeo.setAttribute('color', new T.BufferAttribute(screenColors, 3));
+        var screenMat = new T.MeshPhongMaterial({
+          vertexColors: true, side: T.DoubleSide, shininess: 45,
+          emissive: 0x061b2d, emissiveIntensity: .7
+        });
+        var screen = new T.Mesh(screenGeo, screenMat);
+        screen.position.z = screenZ;
+        S.add(screen);
+
+        var frameMat = new T.MeshPhongMaterial({ color: 0x52687d, metalness: .78, shininess: 82 });
+        var frameParts = [
+          { x: 0, y: screenH / 2 + .07, w: screenW + .22, h: .14 },
+          { x: 0, y: -screenH / 2 - .07, w: screenW + .22, h: .14 },
+          { x: -screenW / 2 - .07, y: 0, w: .14, h: screenH },
+          { x: screenW / 2 + .07, y: 0, w: .14, h: screenH }
+        ];
+        frameParts.forEach(function (p) {
+          var bar = new T.Mesh(new T.BoxGeometry(p.w, p.h, .12), frameMat);
+          bar.position.set(p.x, p.y, screenZ + .06);
+          S.add(bar);
+        });
+
+        // Opaque barrier built from three panels, leaving two narrow vertical slits.
+        var barrierMat = new T.MeshPhongMaterial({
+          color: 0x26394b, metalness: .8, roughness: .42, shininess: 65
+        });
+        var panelRanges = [
+          { x: -1.43, w: 1.94 },
+          { x: 0, w: .78 },
+          { x: 1.43, w: 1.94 }
+        ];
+        panelRanges.forEach(function (p) {
+          var panel = new T.Mesh(new T.BoxGeometry(p.w, 3.35, .18), barrierMat);
+          panel.position.set(p.x, 0, barrierZ);
+          S.add(panel);
+        });
+
+        var slitEdgeMat = new T.MeshBasicMaterial({ color: 0x79eaff });
+        [-.48, .48].forEach(function (sx) {
+          [-.075, .075].forEach(function (dx) {
+            var edge = new T.Mesh(new T.BoxGeometry(.018, 3.35, .20), slitEdgeMat);
+            edge.position.set(sx + dx, 0, barrierZ);
+            S.add(edge);
+          });
+        });
+
+        // Incident beam and source glow.
+        var source = new T.Mesh(new T.SphereGeometry(.18, 24, 18),
+          new T.MeshPhongMaterial({ color: 0xb8f5ff, emissive: 0x1aa9da, emissiveIntensity: 1.8 }));
+        source.position.set(0, 0, 2.25);
+        S.add(source);
+        var sourceGlow = new T.PointLight(0x40dfff, 1.9, 8);
+        sourceGlow.position.copy(source.position);
+        S.add(sourceGlow);
+
+        // Expanding wavefronts pass through each slit toward the screen.
+        var waveRings = [], ringMaterials = [];
+        for (var slit = 0; slit < 2; slit++) {
+          var slitX = slit === 0 ? -.48 : .48;
+          for (var wr = 0; wr < 4; wr++) {
+            var ringMat = new T.MeshBasicMaterial({
+              color: slit === 0 ? 0x42d8ff : 0x9b8cff,
+              transparent: true, opacity: .48, blending: T.AdditiveBlending,
+              depthWrite: false, side: T.DoubleSide
+            });
+            var ring = new T.Mesh(new T.TorusGeometry(.52, .012, 6, 56), ringMat);
+            ring.position.set(slitX, 0, barrierZ - .18);
+            S.add(ring);
+            waveRings.push({ mesh: ring, slit: slit, phase: wr / 4 });
+            ringMaterials.push(ringMat);
+          }
+        }
+
+        // Two reference rays connect the source to the two slit centres.
+        var rayMaterials = [];
+        [-.48, .48].forEach(function (sx) {
+          var rayGeo = new T.BufferGeometry().setFromPoints([
+            new T.Vector3(0, 0, 1.98), new T.Vector3(sx, 0, barrierZ + .16)
+          ]);
+          var rayMat = new T.LineBasicMaterial({ color: 0xffdf8a, transparent: true, opacity: .55 });
+          S.add(new T.Line(rayGeo, rayMat));
+          rayMaterials.push(rayMat);
+        });
+
+        var patternSignature = '';
+        var screenColor = new T.Color();
+        function updatePattern() {
+          var lambdaNm = param(prm, 'wavelength', 550);
+          var slitMm = param(prm, 'separation', .25);
+          var distanceM = param(prm, 'distance', 1.5);
+          var signature = lambdaNm + '|' + slitMm + '|' + distanceM;
+          if (signature === patternSignature) return;
+          patternSignature = signature;
+          var pos = screenGeo.attributes.position;
+          var fringeSpacingM = (lambdaNm * 1e-9 * distanceM) / (slitMm * 1e-3);
+          var halfPhysicalWidth = .05;
+          for (var vi = 0; vi < pos.count; vi++) {
+            var xWorld = pos.getX(vi);
+            var xPhysical = (xWorld / (screenW / 2)) * halfPhysicalWidth;
+            var phase = Math.PI * slitMm * 1e-3 * xPhysical / Math.max(1e-12, lambdaNm * 1e-9 * distanceM);
+            var envelope = Math.exp(-Math.pow(xPhysical / .052, 4));
+            var intensity = Math.pow(Math.cos(phase), 2) * envelope;
+            var r = .012 + intensity * .12;
+            var g = .025 + intensity * .78;
+            var b = .065 + intensity * .92;
+            var j = vi * 3;
+            screenColors[j] = r;
+            screenColors[j + 1] = g;
+            screenColors[j + 2] = b;
+          }
+          screenGeo.attributes.color.needsUpdate = true;
+        }
+
+        updateModel = function () {
+          updatePattern();
+          waveRings.forEach(function (entry) {
+            var cycle = (time * .27 + entry.phase) % 1;
+            var scale = .28 + cycle * 1.12;
+            entry.mesh.scale.set(scale, scale, 1);
+            entry.mesh.position.z = barrierZ - .25 - cycle * 3.25;
+            entry.mesh.material.opacity = .58 * (1 - cycle) + .06;
+          });
+          sourceGlow.intensity = .95 + .35 * (1 + Math.sin(time * 3));
+          ringMaterials.forEach(function (m, i) {
+            m.color.set(i % 4 === 0 ? 0x74e7ff : 0x5bbce8);
+          });
+        };
+        resetModel = function () { time = 0; updateModel(0); };
+        updateModel(0);
+        st.sph.r = 10.5;
+        st.place();
       } else if (spec.engine === 'wave') {
         var length = 12, N = 260, data = new Float32Array((N + 1) * 3), geo = new T.BufferGeometry();
         geo.setAttribute('position', new T.BufferAttribute(data, 3));
@@ -659,6 +805,7 @@
           if (spec.engine === 'tokamak') return 'تتحرك الجسيمات في مسارات حلزونية مع دوران مغزلي صغير حول خطوط المجال. تغيير شدة المجال يغيّر التفاف المسارات وميل خطوط المجال، والحرارة تغيّر سرعة الحركة والتموج، والكثافة تغيّر عدد الجسيمات ووهج البلازما. هذا نموذج بصري تعليمي مبسّط، لا يحل معادلات MHD ولا يتنبأ باستقرار مفاعل حقيقي.';
           if (spec.engine === 'pendulum') return 'يتحرك الثقل وفق معادلة البندول مع تكامل عددي مبسط وتخميد اختياري. النموذج ثنائي الأبعاد داخل مشهد ثلاثي الأبعاد.';
           if (spec.engine === 'wave') return 'يمثل الخط موجة جيبية مثالية. غيّر السعة والتردد وسرعة الانتشار ولاحظ تغير شكل الموجة وطورها.';
+          if (spec.engine === 'interference') return 'تجربة شقي يونغ: تتراكب موجتان ضوئيتان مترابطتان فتظهر أهداب مضيئة ومعتمة على الشاشة. يحسب النموذج شدة الأهداب بالعلاقة I ∝ cos²(π d x / λ L)، ويعرض المسافة بين الأهداب Δy = λL/d. النموذج يفترض ضوءاً أحادي اللون وشقين مثاليين وتقريب المجال البعيد، ولا يحسب حيود الشق ذي العرض المحدود.';
           return spec.assumptions || spec.principle || spec.summary;
         },
         dispose: function () { st.dispose(); }
