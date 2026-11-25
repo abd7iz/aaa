@@ -2053,6 +2053,7 @@
         st.sph.r = 10.6;
         st.place();
 
+      } else if (spec.engine === 'pendulum') {
         var L = param(prm, 'length', 2), pivot = new T.Vector3(0, 3, 0);
         var pivotMesh = new T.Mesh(new T.SphereGeometry(.13, 18, 12), new T.MeshPhongMaterial({ color: 0xd1d5db }));
         pivotMesh.position.copy(pivot); S.add(pivotMesh);
